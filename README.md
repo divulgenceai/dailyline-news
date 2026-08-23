@@ -1,11 +1,12 @@
-# Dayline
+# Dailyline
 
-A clean, mobile-ready live news feed built with React, Vite, and a small server-side source collector. Dayline prioritises a reader's country while keeping an independently refreshed Palestine desk visible in every edition.
+A clean, mobile-ready live news feed built with React, Vite, and a small server-side source collector. Dailyline prioritises a reader's country while keeping an independently refreshed Palestine desk and Al Jazeera English live channel visible in every edition.
 
 ## What it includes
 
 - Hourly local and global editions for Australia, New Zealand, the United States, Canada, the United Kingdom, Ireland, India, Pakistan, and Singapore, with more than one Canadian endpoint so a slow publisher cannot empty that edition
 - A Palestine desk refreshed every 30 minutes
+- A red Live desk that checks official regional broadcaster channels every two minutes and always includes Al Jazeera English
 - Australian reporting from 7NEWS, SBS News, Guardian Australia, and The Conversation, plus playable 9News videos
 - Clickable story readers with publisher-provided feed text, source-page metadata, evidence links, and the original publisher URL
 - Location-based edition selection with a manual country picker fallback

@@ -69,6 +69,40 @@ const regionalVideoFeeds = {
   ],
 }
 
+const alJazeeraLive = { name: 'Al Jazeera English', channelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg', global: true }
+
+const regionalLiveChannels = {
+  AU: [
+    { name: '7NEWS', channelId: 'UC5T7D-Dh1eDGtsAFCuwv_Sw' },
+    { name: '9News', channelId: 'UCIYLOcEUX6TbBo7HQVF2PKA' },
+    { name: 'ABC News Australia', channelId: 'UCVgO39Bk5sMo66-6o6Spn6Q' },
+  ],
+  NZ: [
+    { name: '1News', channelId: 'UCxPAYgO8OpFev3PUTKbsxNw' },
+    { name: 'RNZ', channelId: 'UCp4OXwfZE1SaCQ4jRAuaoXQ' },
+  ],
+  US: [
+    { name: 'ABC News', channelId: 'UCBi2mrWuNuyYy4gbM6fU18Q' },
+    { name: 'NBC News', channelId: 'UCeY0bbntWzzVIaj2z3QigXg' },
+  ],
+  CA: [
+    { name: 'CBC News', channelId: 'UCuFFtHWoLl5fauMMD5Ww2jA' },
+    { name: 'Global News', channelId: 'UChLtXXpo4Ge1ReTEboVvTDg' },
+  ],
+  GB: [
+    { name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ' },
+    { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA' },
+  ],
+  IE: [{ name: 'RTÉ News', channelId: 'UC8urSFTmQDxaPDEIZ2Fd63Q' }],
+  IN: [{ name: 'NDTV', channelId: 'UCZFMm1mMw0F81Z37aaEzTUA' }],
+  PK: [{ name: 'DawnNews', channelId: 'UCaxR-D8FjZ-2otbU0_Y2grg' }],
+  SG: [{ name: 'CNA', channelId: 'UC83jt4dlz1Gjl58fzQrrKZg' }],
+  GLOBAL: [
+    { name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ' },
+    { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA' },
+  ],
+}
+
 const palestineFeeds = [
   { name: 'Al Jazeera', category: 'Palestine', url: 'https://www.aljazeera.com/xml/rss/all.xml', homepage: 'https://www.aljazeera.com/where/palestine/', filter: /palestin|gaza|west bank|israel/i },
   { name: 'BBC Middle East', category: 'Palestine', url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml', homepage: 'https://www.bbc.com/news/world/middle_east', filter: /palestin|gaza|west bank|israel/i },
@@ -117,6 +151,8 @@ const cleanText = value => String(value || '')
   .replace(/&#39;|&apos;/g, "'")
   .replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>')
+  .replace(/&#(\d+);/g, (_match, code) => String.fromCodePoint(Number(code)))
+  .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCodePoint(Number.parseInt(code, 16)))
   .replace(/\s+/g, ' ')
   .trim()
 
@@ -281,7 +317,7 @@ const collectSourceDetails = async url => {
   const cached = sourceDetailCache.get(url)
   if (cached && Date.now() - cached.fetchedAt < sourceDetailCacheMs) return cached.data
   const response = await fetch(url, {
-    headers: { 'user-agent': 'Mozilla/5.0 (compatible; Dayline/1.0; source detail reader)' },
+    headers: { 'user-agent': 'Mozilla/5.0 (compatible; Dailyline/1.0; source detail reader)' },
     redirect: 'follow',
     signal: AbortSignal.timeout(12000),
   })
@@ -367,7 +403,7 @@ const fetchXml = async url => {
       const response = await fetch(url, {
         headers: {
           accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
-          'user-agent': 'Mozilla/5.0 (compatible; Dayline/1.0; +https://github.com/divulgenceai/dayline-news)',
+          'user-agent': 'Mozilla/5.0 (compatible; Dailyline/1.0; +https://github.com/divulgenceai/dailyline-news)',
         },
         redirect: 'follow',
         signal: AbortSignal.timeout(8000),
@@ -452,12 +488,41 @@ const parseVideoFeed = async source => {
   }).filter(item => item.videoId && item.title && !Number.isNaN(Date.parse(item.publishedAt)))
 }
 
+const resolveLiveChannel = async channel => {
+  const livePageUrl = `https://www.youtube.com/channel/${channel.channelId}/live`
+  const response = await fetch(livePageUrl, {
+    headers: { 'user-agent': 'Mozilla/5.0 (compatible; Dailyline/1.0 live status)' },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(7000),
+  })
+  if (!response.ok) throw new Error(`YouTube returned ${response.status}`)
+  const html = (await response.text()).slice(0, 3_000_000)
+  const canonicalUrl = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)/i)?.[1]
+    || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)?.[1]
+    || livePageUrl
+  const videoId = canonicalUrl.match(/[?&]v=([a-zA-Z0-9_-]{6,})/)?.[1] || ''
+  const liveNow = Boolean(videoId) && html.includes('"isLiveContent":true')
+  const sourceTitle = metaValue(html, 'og:title').replace(/\s+-\s+YouTube$/i, '')
+  return {
+    ...channel,
+    title: liveNow && sourceTitle ? sourceTitle : `${channel.name} live channel`,
+    liveNow,
+    videoId: liveNow ? videoId : '',
+    watchUrl: liveNow ? `https://www.youtube.com/watch?v=${videoId}` : livePageUrl,
+    livePageUrl,
+    image: liveNow ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : '',
+  }
+}
+
 const feedCaches = new Map()
 let palestineCache = { items: [], fetchedAt: 0, sources: [] }
+const liveCaches = new Map()
 const feedInFlight = new Map()
 let palestineInFlight = null
+const liveInFlight = new Map()
 const cacheForMs = 60 * 60 * 1000
 const palestineCacheForMs = 30 * 60 * 1000
+const liveCacheForMs = 2 * 60 * 1000
 
 const normalizeEdition = value => {
   const code = String(value || '').toUpperCase()
@@ -486,7 +551,6 @@ export const collectFeed = async (editionValue, force) => {
         seen.add(key)
         return true
       })
-      .slice(0, 60)
     if (!items.length) throw new Error('No publishers returned readable stories.')
     const data = {
       items,
@@ -538,10 +602,40 @@ export const collectPalestine = async force => {
   }
 }
 
+export const collectLive = async (editionValue, force) => {
+  const edition = normalizeEdition(editionValue)
+  const cached = liveCaches.get(edition)
+  if (!force && cached?.items.length && Date.now() - cached.fetchedAt < liveCacheForMs) return cached
+  if (liveInFlight.has(edition)) return liveInFlight.get(edition)
+  const collection = (async () => {
+    const regional = regionalLiveChannels[edition] || regionalLiveChannels.GLOBAL
+    const channels = [...regional, alJazeeraLive]
+    const items = await Promise.all(channels.map(channel => resolveLiveChannel(channel).catch(error => ({
+      ...channel,
+      title: `${channel.name} live channel`,
+      liveNow: false,
+      videoId: '',
+      watchUrl: `https://www.youtube.com/channel/${channel.channelId}/live`,
+      livePageUrl: `https://www.youtube.com/channel/${channel.channelId}/live`,
+      image: '',
+      error: error.message,
+    }))))
+    const data = { items, fetchedAt: Date.now(), edition, editionName: editionNames[edition] || editionNames.GLOBAL }
+    liveCaches.set(edition, data)
+    return data
+  })()
+  liveInFlight.set(edition, collection)
+  try {
+    return await collection
+  } finally {
+    liveInFlight.delete(edition)
+  }
+}
+
 const queryValue = (request, key) => {
   const directValue = request.query?.[key]
   if (directValue != null) return Array.isArray(directValue) ? directValue[0] : directValue
-  return new URL(request.url || '/', 'http://dayline.local').searchParams.get(key)
+  return new URL(request.url || '/', 'http://dailyline.local').searchParams.get(key)
 }
 
 const cacheHeader = (seconds, staleSeconds) => `public, max-age=0, s-maxage=${seconds}, stale-while-revalidate=${staleSeconds}`
@@ -588,9 +682,26 @@ export const handlePalestine = async (request, response) => {
   }
 }
 
+export const handleLive = async (request, response) => {
+  const edition = normalizeEdition(queryValue(request, 'country'))
+  const force = queryValue(request, 'refresh') === '1'
+  try {
+    const live = await collectLive(edition, force)
+    response.setHeader('Cache-Control', force ? 'no-store' : cacheHeader(120, 60))
+    response.json({ ...live, fetchedAt: new Date(live.fetchedAt).toISOString() })
+  } catch (error) {
+    const staleLive = liveCaches.get(edition)
+    if (staleLive?.items.length) {
+      response.setHeader('Cache-Control', 'no-store')
+      return response.json({ ...staleLive, fetchedAt: new Date(staleLive.fetchedAt).toISOString(), stale: true })
+    }
+    response.status(503).json({ error: error.message })
+  }
+}
+
 export const handleStoryDetails = async (request, response) => {
   const url = String(queryValue(request, 'url') || '')
-  if (!isAllowedArticleUrl(url)) return response.status(400).json({ error: 'This source is not in Dayline’s approved publisher list.' })
+  if (!isAllowedArticleUrl(url)) return response.status(400).json({ error: 'This source is not in Dailyline’s approved publisher list.' })
   try {
     const details = await collectSourceDetails(url)
     response.setHeader('Cache-Control', 'public, max-age=0, s-maxage=1800, stale-while-revalidate=300')
@@ -602,16 +713,18 @@ export const handleStoryDetails = async (request, response) => {
 
 export const handleHealth = (_request, response) => response.json({
   ok: true,
-  refreshIntervals: { feedMinutes: cacheForMs / 60000, palestineMinutes: palestineCacheForMs / 60000 },
+  refreshIntervals: { feedMinutes: cacheForMs / 60000, palestineMinutes: palestineCacheForMs / 60000, liveMinutes: liveCacheForMs / 60000 },
   dailyEdition: true,
   cache: {
     feedEditions: [...feedCaches.entries()].map(([edition, feed]) => ({ edition, fetchedAt: new Date(feed.fetchedAt).toISOString() })),
     palestineFetchedAt: palestineCache.fetchedAt ? new Date(palestineCache.fetchedAt).toISOString() : null,
+    liveEditions: [...liveCaches.entries()].map(([edition, live]) => ({ edition, fetchedAt: new Date(live.fetchedAt).toISOString() })),
   },
 })
 
 app.get('/api/feed', handleFeed)
 app.get('/api/palestine', handlePalestine)
+app.get('/api/live', handleLive)
 app.get('/api/story-details', handleStoryDetails)
 app.get('/api/health', handleHealth)
 
@@ -626,10 +739,10 @@ if (isDirectRun) {
   app.get('*', (_request, response) => response.sendFile(path.join(root, 'dist', 'index.html')))
   app.use((error, _request, response, _next) => {
     console.error('Unhandled server error:', error)
-    response.status(500).json({ error: 'Dayline could not complete this request.' })
+    response.status(500).json({ error: 'Dailyline could not complete this request.' })
   })
   app.listen(port, '0.0.0.0', () => {
-    console.log(`Dayline feed server listening on http://localhost:${port}`)
+    console.log(`Dailyline feed server listening on http://localhost:${port}`)
     void collectPalestine(false)
     const feedTimer = setInterval(() => {
       for (const edition of feedCaches.keys()) refreshInBackground(`${edition} feed`, () => collectFeed(edition, true))

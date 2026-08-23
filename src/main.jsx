@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, ArrowUpRight, Bookmark, LocateFixed, MapPin, Menu, Play, RefreshCw, Search, X } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Bookmark, LocateFixed, MapPin, Menu, Play, Radio, RefreshCw, Search, X } from 'lucide-react'
 import './styles.css'
 
 const topics = [
@@ -13,6 +13,7 @@ const topics = [
   { label: 'Culture', value: 'Culture' },
   { label: 'History', value: 'History' },
   { label: 'Blogs', value: 'Blogs' },
+  { label: 'Live', value: 'Live' },
   { label: 'Watch', value: 'Watch' },
 ]
 
@@ -42,6 +43,7 @@ const blogTopics = [
 
 const HOUR_MS = 60 * 60 * 1000
 const HALF_HOUR_MS = 30 * 60 * 1000
+const LIVE_REFRESH_MS = 2 * 60 * 1000
 const browserLocale = navigator.language || 'en-AU'
 const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 const fullDate = new Intl.DateTimeFormat(browserLocale, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -134,7 +136,7 @@ const millisecondsUntilTomorrow = () => {
 
 const readSaved = () => {
   try {
-    const value = JSON.parse(localStorage.getItem('dayline-feed-saved') || '[]')
+    const value = JSON.parse(localStorage.getItem('dailyline-feed-saved') || localStorage.getItem('dayline-feed-saved') || '[]')
     return Array.isArray(value) ? value : []
   } catch {
     return []
@@ -143,7 +145,7 @@ const readSaved = () => {
 
 const readEdition = () => {
   try {
-    const savedEdition = JSON.parse(localStorage.getItem('dayline-edition-v1') || 'null')
+    const savedEdition = JSON.parse(localStorage.getItem('dailyline-edition-v1') || localStorage.getItem('dayline-edition-v1') || 'null')
     return editionByCode.get(savedEdition?.code) || null
   } catch {
     return null
@@ -267,7 +269,7 @@ function Header({ active, setActive, blogTopic, setBlogTopic, query, setQuery, r
   return (
     <header className="header">
       <div className="header-primary">
-        <a className="brand" href="#top">Dayline<span>.</span></a>
+        <a className="brand" href="#top">Dailyline<span>.</span></a>
         <LocalDateTime />
         <div className="header-actions">
           <button className="edition-button" onClick={openEditionPicker} aria-label={`Change local edition. Current edition: ${edition?.name || 'not selected'}`}>
@@ -289,7 +291,7 @@ function Header({ active, setActive, blogTopic, setBlogTopic, query, setQuery, r
       </div>
       <nav className={menuOpen ? 'topic-nav open' : 'topic-nav'} aria-label="News topics">
         {topics.map(topic => (
-          <button key={topic.value} className={`${active === topic.value ? 'active' : ''}${topic.value === 'Palestine' ? ' palestine-topic' : ''}`} onClick={() => selectTopic(topic.value)}>
+          <button key={topic.value} className={`${active === topic.value ? 'active' : ''}${topic.value === 'Palestine' ? ' palestine-topic' : ''}${topic.value === 'Live' ? ' live-topic' : ''}`} onClick={() => selectTopic(topic.value)}>
             {topic.label}
           </button>
         ))}
@@ -415,6 +417,68 @@ function VideoStory({ story, saved, toggleSaved }) {
         <StoryActions story={story} saved={saved} toggleSaved={toggleSaved} />
       </div>
     </article>
+  )
+}
+
+function LiveChannelCard({ channel, index }) {
+  const [playing, setPlaying] = useState(false)
+  const playable = channel.liveNow && channel.videoId
+  const initials = channel.name.split(/\s+/).map(word => word[0]).join('').slice(0, 3)
+
+  return (
+    <article className={`live-channel-card${channel.global ? ' global-live' : ''}`} style={{ '--story-delay': `${Math.min(index, 6) * 55}ms` }}>
+      <div className="live-channel-media">
+        {playing && playable ? (
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${channel.videoId}?autoplay=1&playsinline=1&rel=0`}
+            title={`${channel.name} live stream`}
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        ) : playable ? (
+          <button onClick={() => setPlaying(true)} aria-label={`Play ${channel.name} live`}>
+            <img src={channel.image} alt="" loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
+            <span className="live-play"><Play size={28} fill="currentColor" /></span>
+          </button>
+        ) : (
+          <div className="live-channel-placeholder" aria-hidden="true"><span>{initials}</span></div>
+        )}
+        <span className={playable ? 'live-badge is-live' : 'live-badge'}><i />{playable ? 'Live now' : 'Channel'}</span>
+      </div>
+      <div className="live-channel-copy">
+        <div><strong>{channel.name}</strong>{channel.global ? <em>Always included</em> : null}</div>
+        <h2>{channel.title}</h2>
+        <p>{playable ? 'Broadcasting from the publisher’s verified YouTube channel.' : 'Not broadcasting right now. Its official live page remains available.'}</p>
+        {playing && playable
+          ? <a href={channel.watchUrl} target="_blank" rel="noreferrer">Open on YouTube <ArrowUpRight size={17} /></a>
+          : playable
+            ? <button className="watch-live-button" onClick={() => setPlaying(true)}>Watch live <Radio size={17} /></button>
+            : <a href={channel.livePageUrl} target="_blank" rel="noreferrer">Open live channel <ArrowUpRight size={17} /></a>}
+      </div>
+    </article>
+  )
+}
+
+function LiveDesk({ channels, fetchedAt, loading, error, refresh, edition }) {
+  const liveCount = channels.filter(channel => channel.liveNow && channel.videoId).length
+  return (
+    <section className="live-desk" aria-labelledby="live-page-title">
+      <div className="live-page-heading">
+        <div className="live-kicker"><span />Verified broadcaster streams</div>
+        <h1 id="live-page-title">LIVE</h1>
+        <p>{edition?.code === 'GLOBAL' ? 'Worldwide news channels' : `${edition?.name} broadcasters`} with Al Jazeera English included in every edition.</p>
+        <div className="live-page-status">
+          <strong>{liveCount} broadcasting now</strong>
+          <span>{fetchedAt ? `Checked ${relativeTime(fetchedAt)}` : 'Checking channels'}</span>
+          <button onClick={refresh} disabled={loading}><RefreshCw size={18} className={loading ? 'spin' : ''} /> Check again</button>
+        </div>
+      </div>
+      {loading && !channels.length ? <div className="live-loading" role="status"><span />Checking official live channels…</div> : null}
+      {error && !channels.length ? <div className="error-state"><h2>Live channels are temporarily unavailable.</h2><p>{error}</p></div> : null}
+      <div className="live-channel-grid">{channels.map((channel, index) => <LiveChannelCard key={channel.channelId} channel={channel} index={index} />)}</div>
+      <p className="live-methodology">Live status is checked against each broadcaster’s official YouTube live page every two minutes. A channel marked “Channel” is genuine but is not broadcasting at that moment.</p>
+    </section>
   )
 }
 
@@ -605,7 +669,7 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
           <section className="publisher-briefing">
             <h2>Available publisher detail</h2>
             {toParagraphs(detail).map((paragraph, index) => <p key={`${story.id}-paragraph-${index}`}>{paragraph}</p>)}
-            <small>{story.feedTextStatus || 'Publisher-supplied feed text'}. Dayline preserves attribution and links to the complete original.</small>
+            <small>{story.feedTextStatus || 'Publisher-supplied feed text'}. Dailyline preserves attribution and links to the complete original.</small>
           </section>
         ) : null}
         <ReaderBody blocks={sourceDetails?.body} source={story.source} wordCount={sourceDetails?.bodyWordCount} media={sourceDetails?.media} />
@@ -649,7 +713,7 @@ function EditionPicker({ open, edition, locating, message, chooseEdition, detect
         {edition ? <button className="edition-close" onClick={close} aria-label="Close country picker"><X size={23} /></button> : null}
         <MapPin className="edition-mark" size={30} aria-hidden="true" />
         <h2 id="edition-title">Choose your local edition</h2>
-        <p>Dayline uses your country only to prioritise relevant reporting. Palestine coverage stays available in every edition.</p>
+        <p>Dailyline uses your country only to prioritise relevant reporting. Palestine coverage stays available in every edition.</p>
         {message ? <p className="edition-message" role="status">{message}</p> : null}
         <div className="edition-grid" aria-label="Available country editions">
           {editionOptions.map(option => (
@@ -667,7 +731,7 @@ function EditionPicker({ open, edition, locating, message, chooseEdition, detect
           <LocateFixed size={19} className={locating ? 'spin' : ''} aria-hidden="true" />
           {locating ? 'Finding your country…' : 'Use my current location'}
         </button>
-        <small>Your browser sends the coordinates once to BigDataCloud for country detection. Dayline does not store them.</small>
+        <small>Your browser sends the coordinates once to BigDataCloud for country detection. Dailyline does not store them.</small>
       </section>
     </div>
   )
@@ -679,13 +743,17 @@ function App() {
   const [fetchedAt, setFetchedAt] = useState(null)
   const [palestineStories, setPalestineStories] = useState([])
   const [palestineFetchedAt, setPalestineFetchedAt] = useState(null)
+  const [liveChannels, setLiveChannels] = useState([])
+  const [liveFetchedAt, setLiveFetchedAt] = useState(null)
   const [active, setActive] = useState('All')
   const [blogTopic, setBlogTopic] = useState('All')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [palestineLoading, setPalestineLoading] = useState(true)
+  const [liveLoading, setLiveLoading] = useState(true)
   const [error, setError] = useState('')
   const [palestineError, setPalestineError] = useState('')
+  const [liveError, setLiveError] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [selectedStory, setSelectedStory] = useState(null)
   const [saved, setSaved] = useState(readSaved)
@@ -703,7 +771,10 @@ function App() {
     setStories([])
     setSources([])
     setFetchedAt(null)
-    localStorage.setItem('dayline-edition-v1', JSON.stringify(option))
+    setLiveChannels([])
+    setLiveFetchedAt(null)
+    setLiveLoading(true)
+    localStorage.setItem('dailyline-edition-v1', JSON.stringify(option))
   }, [])
 
   const detectLocation = useCallback(() => {
@@ -773,26 +844,45 @@ function App() {
     }
   }, [])
 
+  const loadLive = useCallback(async force => {
+    if (!editionCode) return
+    setLiveLoading(true)
+    setLiveError('')
+    try {
+      const params = new URLSearchParams({ country: editionCode })
+      if (force) params.set('refresh', '1')
+      const data = await fetchJson(`/api/live?${params}`, 18_000)
+      setLiveChannels(data.items)
+      setLiveFetchedAt(data.fetchedAt)
+    } catch (reason) {
+      setLiveError(reason.message)
+    } finally {
+      setLiveLoading(false)
+    }
+  }, [editionCode])
+
   useEffect(() => { if (!edition) detectLocation() }, [detectLocation, edition])
   useEffect(() => { if (edition) void loadFeed(false) }, [edition, loadFeed])
+  useEffect(() => { if (edition) void loadLive(false) }, [edition, loadLive])
   useEffect(() => { void loadPalestine(false) }, [loadPalestine])
   useEffect(() => {
     const hourlyTimer = window.setInterval(() => void loadFeed(false), HOUR_MS)
     const palestineTimer = window.setInterval(() => void loadPalestine(false), HALF_HOUR_MS)
-    return () => { window.clearInterval(hourlyTimer); window.clearInterval(palestineTimer) }
-  }, [loadFeed, loadPalestine])
+    const liveTimer = window.setInterval(() => void loadLive(false), LIVE_REFRESH_MS)
+    return () => { window.clearInterval(hourlyTimer); window.clearInterval(palestineTimer); window.clearInterval(liveTimer) }
+  }, [loadFeed, loadLive, loadPalestine])
   useEffect(() => {
     let dailyTimer
     const scheduleDailyEdition = () => {
       dailyTimer = window.setTimeout(() => {
-        void Promise.all([edition ? loadFeed(true) : Promise.resolve(), loadPalestine(true)])
+        void Promise.all([edition ? loadFeed(true) : Promise.resolve(), edition ? loadLive(true) : Promise.resolve(), loadPalestine(true)])
         scheduleDailyEdition()
       }, millisecondsUntilTomorrow())
     }
     scheduleDailyEdition()
     return () => window.clearTimeout(dailyTimer)
-  }, [edition, loadFeed, loadPalestine])
-  useEffect(() => localStorage.setItem('dayline-feed-saved', JSON.stringify(saved)), [saved])
+  }, [edition, loadFeed, loadLive, loadPalestine])
+  useEffect(() => localStorage.setItem('dailyline-feed-saved', JSON.stringify(saved)), [saved])
 
   const visibleStories = useMemo(() => {
     const dataset = active === 'Palestine' ? palestineStories : stories
@@ -817,7 +907,7 @@ function App() {
     setActive('Palestine')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
-  const refreshAll = useCallback(() => void Promise.all([edition ? loadFeed(true) : Promise.resolve(), loadPalestine(true)]), [edition, loadFeed, loadPalestine])
+  const refreshAll = useCallback(() => void Promise.all([edition ? loadFeed(true) : Promise.resolve(), edition ? loadLive(true) : Promise.resolve(), loadPalestine(true)]), [edition, loadFeed, loadLive, loadPalestine])
   const activeLabel = topics.find(topic => topic.value === active)?.label || active
   const activeBlogLabel = blogTopics.find(topic => topic.value === blogTopic)?.label || blogTopic
   const healthyCount = sources.filter(source => source.ok).length
@@ -825,18 +915,19 @@ function App() {
 
   return (
     <>
-      <Header active={active} setActive={setActive} blogTopic={blogTopic} setBlogTopic={setBlogTopic} query={query} setQuery={setQuery} refresh={refreshAll} loading={loading || palestineLoading} menuOpen={menuOpen} setMenuOpen={setMenuOpen} edition={edition} locating={locating} openEditionPicker={() => setEditionPickerOpen(true)} />
+      <Header active={active} setActive={setActive} blogTopic={blogTopic} setBlogTopic={setBlogTopic} query={query} setQuery={setQuery} refresh={refreshAll} loading={loading || palestineLoading || liveLoading} menuOpen={menuOpen} setMenuOpen={setMenuOpen} edition={edition} locating={locating} openEditionPicker={() => setEditionPickerOpen(true)} />
       <main className="feed-shell" id="top">
         {loading && !stories.length ? <Skeleton /> : null}
         {error && !stories.length ? <section className="error-state"><h1>We couldn’t reach the live sources.</h1><p>{error}</p><button onClick={() => loadFeed(true)}>Try again</button></section> : null}
-        {!loading && !error && !visibleStories.length && active !== 'Palestine' ? <section className="error-state"><h1>No matching stories.</h1><p>Try another topic or search.</p></section> : null}
+        {!loading && !error && !visibleStories.length && active !== 'Palestine' && active !== 'Live' ? <section className="error-state"><h1>No matching stories.</h1><p>Try another topic or search.</p></section> : null}
         {!query && active === 'All' && stories.length ? (
           <HomeView stories={stories} palestineStories={palestineStories} palestineFetchedAt={palestineFetchedAt} saved={saved} toggleSaved={toggleSaved} openStory={setSelectedStory} openPalestine={openPalestine} edition={edition} />
         ) : null}
         {active === 'Palestine' ? (
           <PalestineDesk stories={visibleStories} fetchedAt={palestineFetchedAt} loading={palestineLoading} error={palestineError} refresh={() => loadPalestine(true)} openStory={setSelectedStory} />
         ) : null}
-        {(query || (active !== 'All' && active !== 'Palestine')) && visibleStories.length ? (
+        {active === 'Live' ? <LiveDesk channels={liveChannels} fetchedAt={liveFetchedAt} loading={liveLoading} error={liveError} refresh={() => loadLive(true)} edition={edition} /> : null}
+        {(query || (active !== 'All' && active !== 'Palestine' && active !== 'Live')) && visibleStories.length ? (
           <TopicView
             title={query ? `Results for “${query}”` : active === 'Local' ? `${edition?.name || 'Local'} news` : active === 'Blogs' ? activeBlogLabel === 'All posts' ? 'Blogs' : `${activeBlogLabel} blogs` : activeLabel}
             stories={visibleStories}
