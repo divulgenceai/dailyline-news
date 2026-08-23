@@ -1,0 +1,26 @@
+{
+  "name": "dayline-news",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 0.0.0.0\" \"node --watch server.mjs\"",
+    "build": "vite build",
+    "preview": "node server.mjs",
+    "check:editions": "node scripts/check-editions.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "4.3.4",
+    "cheerio": "^1.1.2",
+    "concurrently": "9.2.4",
+    "express": "4.22.2",
+    "fast-xml-parser": "5.11.0",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "6.4.3"
+  }
+}
