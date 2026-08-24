@@ -69,37 +69,43 @@ const regionalVideoFeeds = {
   ],
 }
 
-const alJazeeraLive = { name: 'Al Jazeera English', channelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg', global: true }
+const alJazeeraLive = {
+  name: 'Al Jazeera English',
+  channelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg',
+  websiteUrl: 'https://www.aljazeera.com/',
+  brandColor: '#d7a229',
+  global: true,
+}
 
 const regionalLiveChannels = {
   AU: [
-    { name: '7NEWS', channelId: 'UC5T7D-Dh1eDGtsAFCuwv_Sw' },
-    { name: '9News', channelId: 'UCIYLOcEUX6TbBo7HQVF2PKA' },
-    { name: 'ABC News Australia', channelId: 'UCVgO39Bk5sMo66-6o6Spn6Q' },
+    { name: '7NEWS', channelId: 'UC5T7D-Dh1eDGtsAFCuwv_Sw', websiteUrl: 'https://7news.com.au/', brandColor: '#e21b2d' },
+    { name: '9News', channelId: 'UCIYLOcEUX6TbBo7HQVF2PKA', websiteUrl: 'https://www.9news.com.au/', brandColor: '#1556a2' },
+    { name: 'ABC News Australia', channelId: 'UCVgO39Bk5sMo66-6o6Spn6Q', websiteUrl: 'https://www.abc.net.au/news/', brandColor: '#111111' },
   ],
   NZ: [
-    { name: '1News', channelId: 'UCxPAYgO8OpFev3PUTKbsxNw' },
-    { name: 'RNZ', channelId: 'UCp4OXwfZE1SaCQ4jRAuaoXQ' },
+    { name: '1News', channelId: 'UCxPAYgO8OpFev3PUTKbsxNw', websiteUrl: 'https://www.1news.co.nz/', brandColor: '#c9002b' },
+    { name: 'RNZ', channelId: 'UCp4OXwfZE1SaCQ4jRAuaoXQ', websiteUrl: 'https://www.rnz.co.nz/news/', brandColor: '#c8102e' },
   ],
   US: [
-    { name: 'ABC News', channelId: 'UCBi2mrWuNuyYy4gbM6fU18Q' },
-    { name: 'NBC News', channelId: 'UCeY0bbntWzzVIaj2z3QigXg' },
+    { name: 'ABC News', channelId: 'UCBi2mrWuNuyYy4gbM6fU18Q', websiteUrl: 'https://abcnews.go.com/', brandColor: '#151515' },
+    { name: 'NBC News', channelId: 'UCeY0bbntWzzVIaj2z3QigXg', websiteUrl: 'https://www.nbcnews.com/', brandColor: '#552583' },
   ],
   CA: [
-    { name: 'CBC News', channelId: 'UCuFFtHWoLl5fauMMD5Ww2jA' },
-    { name: 'Global News', channelId: 'UChLtXXpo4Ge1ReTEboVvTDg' },
+    { name: 'CBC News', channelId: 'UCuFFtHWoLl5fauMMD5Ww2jA', websiteUrl: 'https://www.cbc.ca/news', brandColor: '#d71920' },
+    { name: 'Global News', channelId: 'UChLtXXpo4Ge1ReTEboVvTDg', websiteUrl: 'https://globalnews.ca/', brandColor: '#d91e2b' },
   ],
   GB: [
-    { name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ' },
-    { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA' },
+    { name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ', websiteUrl: 'https://news.sky.com/', brandColor: '#d0021b' },
+    { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA', websiteUrl: 'https://www.bbc.com/news', brandColor: '#b80000' },
   ],
-  IE: [{ name: 'RTÉ News', channelId: 'UC8urSFTmQDxaPDEIZ2Fd63Q' }],
-  IN: [{ name: 'NDTV', channelId: 'UCZFMm1mMw0F81Z37aaEzTUA' }],
-  PK: [{ name: 'DawnNews', channelId: 'UCaxR-D8FjZ-2otbU0_Y2grg' }],
-  SG: [{ name: 'CNA', channelId: 'UC83jt4dlz1Gjl58fzQrrKZg' }],
+  IE: [{ name: 'RTÉ News', channelId: 'UC8urSFTmQDxaPDEIZ2Fd63Q', websiteUrl: 'https://www.rte.ie/news/', brandColor: '#143d64' }],
+  IN: [{ name: 'NDTV', channelId: 'UCZFMm1mMw0F81Z37aaEzTUA', websiteUrl: 'https://www.ndtv.com/', brandColor: '#b3192e' }],
+  PK: [{ name: 'DawnNews', channelId: 'UCaxR-D8FjZ-2otbU0_Y2grg', websiteUrl: 'https://www.dawn.com/', brandColor: '#b50016' }],
+  SG: [{ name: 'CNA', channelId: 'UC83jt4dlz1Gjl58fzQrrKZg', websiteUrl: 'https://www.channelnewsasia.com/', brandColor: '#8f263d' }],
   GLOBAL: [
-    { name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ' },
-    { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA' },
+    { name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ', websiteUrl: 'https://news.sky.com/', brandColor: '#d0021b' },
+    { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA', websiteUrl: 'https://www.bbc.com/news', brandColor: '#b80000' },
   ],
 }
 
@@ -488,21 +494,33 @@ const parseVideoFeed = async source => {
   }).filter(item => item.videoId && item.title && !Number.isNaN(Date.parse(item.publishedAt)))
 }
 
-const resolveLiveChannel = async channel => {
-  const livePageUrl = `https://www.youtube.com/channel/${channel.channelId}/live`
-  const response = await fetch(livePageUrl, {
+const fetchYouTubePage = async url => {
+  const response = await fetch(url, {
     headers: { 'user-agent': 'Mozilla/5.0 (compatible; Dailyline/1.0 live status)' },
     redirect: 'follow',
     signal: AbortSignal.timeout(7000),
   })
   if (!response.ok) throw new Error(`YouTube returned ${response.status}`)
-  const html = (await response.text()).slice(0, 3_000_000)
+  return (await response.text()).slice(0, 3_000_000)
+}
+
+const resolveLiveChannel = async channel => {
+  const livePageUrl = `https://www.youtube.com/channel/${channel.channelId}/live`
+  const channelPageUrl = `https://www.youtube.com/channel/${channel.channelId}`
+  const [liveResult, channelResult] = await Promise.allSettled([
+    fetchYouTubePage(livePageUrl),
+    fetchYouTubePage(channelPageUrl),
+  ])
+  const html = liveResult.status === 'fulfilled' ? liveResult.value : ''
+  const channelHtml = channelResult.status === 'fulfilled' ? channelResult.value : ''
+  if (!html && !channelHtml) throw new Error(liveResult.reason?.message || channelResult.reason?.message || 'Channel metadata unavailable')
   const canonicalUrl = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)/i)?.[1]
     || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)?.[1]
     || livePageUrl
   const videoId = canonicalUrl.match(/[?&]v=([a-zA-Z0-9_-]{6,})/)?.[1] || ''
   const liveNow = Boolean(videoId) && html.includes('"isLiveContent":true')
   const sourceTitle = metaValue(html, 'og:title').replace(/\s+-\s+YouTube$/i, '')
+  const logo = metaValue(channelHtml, 'og:image') || (!liveNow ? metaValue(html, 'og:image') : '')
   return {
     ...channel,
     title: liveNow && sourceTitle ? sourceTitle : `${channel.name} live channel`,
@@ -510,7 +528,9 @@ const resolveLiveChannel = async channel => {
     videoId: liveNow ? videoId : '',
     watchUrl: liveNow ? `https://www.youtube.com/watch?v=${videoId}` : livePageUrl,
     livePageUrl,
+    logo,
     image: liveNow ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : '',
+    error: html ? null : liveResult.reason?.message || 'Live status unavailable',
   }
 }
 
@@ -617,6 +637,7 @@ export const collectLive = async (editionValue, force) => {
       videoId: '',
       watchUrl: `https://www.youtube.com/channel/${channel.channelId}/live`,
       livePageUrl: `https://www.youtube.com/channel/${channel.channelId}/live`,
+      logo: '',
       image: '',
       error: error.message,
     }))))

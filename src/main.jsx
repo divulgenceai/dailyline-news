@@ -423,7 +423,8 @@ function VideoStory({ story, saved, toggleSaved }) {
 function LiveChannelCard({ channel, index }) {
   const [playing, setPlaying] = useState(false)
   const playable = channel.liveNow && channel.videoId
-  const initials = channel.name.split(/\s+/).map(word => word[0]).join('').slice(0, 3)
+  const officialUrl = channel.websiteUrl || channel.livePageUrl
+  const brandStyle = { '--live-brand': channel.brandColor || '#4d1d27' }
 
   return (
     <article className={`live-channel-card${channel.global ? ' global-live' : ''}`} style={{ '--story-delay': `${Math.min(index, 6) * 55}ms` }}>
@@ -442,19 +443,30 @@ function LiveChannelCard({ channel, index }) {
             <span className="live-play"><Play size={28} fill="currentColor" /></span>
           </button>
         ) : (
-          <div className="live-channel-placeholder" aria-hidden="true"><span>{initials}</span></div>
+          <div className="live-channel-placeholder" style={brandStyle}>
+            {channel.logo ? <img className="live-channel-artwork-backdrop" src={channel.logo} alt="" aria-hidden="true" /> : null}
+            {channel.logo
+              ? <img className="live-channel-logo" src={channel.logo} alt={`${channel.name} logo`} loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
+              : <strong>{channel.name}</strong>}
+          </div>
         )}
         <span className={playable ? 'live-badge is-live' : 'live-badge'}><i />{playable ? 'Live now' : 'Channel'}</span>
       </div>
       <div className="live-channel-copy">
-        <div><strong>{channel.name}</strong>{channel.global ? <em>Always included</em> : null}</div>
+        <div className="live-channel-brandline">
+          <span>{channel.logo ? <img src={channel.logo} alt="" aria-hidden="true" /> : null}<strong>{channel.name}</strong></span>
+          {channel.global ? <em>Always included</em> : null}
+        </div>
         <h2>{channel.title}</h2>
-        <p>{playable ? 'Broadcasting from the publisher’s verified YouTube channel.' : 'Not broadcasting right now. Its official live page remains available.'}</p>
-        {playing && playable
-          ? <a href={channel.watchUrl} target="_blank" rel="noreferrer">Open on YouTube <ArrowUpRight size={17} /></a>
-          : playable
-            ? <button className="watch-live-button" onClick={() => setPlaying(true)}>Watch live <Radio size={17} /></button>
-            : <a href={channel.livePageUrl} target="_blank" rel="noreferrer">Open live channel <ArrowUpRight size={17} /></a>}
+        <p>{playable ? 'Live on the broadcaster’s verified channel. Its own news site is available too.' : 'Not broadcasting on YouTube right now. Follow coverage on the broadcaster’s own site.'}</p>
+        <div className="live-channel-actions">
+          {playing && playable
+            ? <a href={channel.watchUrl} target="_blank" rel="noreferrer">Open stream <ArrowUpRight size={17} /></a>
+            : playable
+              ? <button className="watch-live-button" onClick={() => setPlaying(true)}>Watch live <Radio size={17} /></button>
+              : null}
+          <a className="official-site-link" href={officialUrl} target="_blank" rel="noreferrer">Official site <ArrowUpRight size={17} /></a>
+        </div>
       </div>
     </article>
   )
