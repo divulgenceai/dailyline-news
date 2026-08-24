@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, ArrowUpRight, Bookmark, LocateFixed, MapPin, Menu, Play, Radio, RefreshCw, Search, X } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Bookmark, LocateFixed, MapPin, Menu, Play, RefreshCw, Search, X } from 'lucide-react'
 import './styles.css'
 
 const topics = [
@@ -421,35 +421,29 @@ function VideoStory({ story, saved, toggleSaved }) {
 }
 
 function LiveChannelCard({ channel, index }) {
-  const [playing, setPlaying] = useState(false)
   const playable = channel.liveNow && channel.videoId
   const officialUrl = channel.websiteUrl || channel.livePageUrl
+  const destinationUrl = playable ? (channel.watchUrl || channel.livePageUrl) : officialUrl
   const brandStyle = { '--live-brand': channel.brandColor || '#4d1d27' }
 
   return (
     <article className={`live-channel-card${channel.global ? ' global-live' : ''}`} style={{ '--story-delay': `${Math.min(index, 6) * 55}ms` }}>
       <div className="live-channel-media">
-        {playing && playable ? (
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${channel.videoId}?autoplay=1&playsinline=1&rel=0`}
-            title={`${channel.name} live stream`}
-            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          />
-        ) : playable ? (
-          <button onClick={() => setPlaying(true)} aria-label={`Play ${channel.name} live`}>
-            <img src={channel.image} alt="" loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
+        <a className="live-channel-media-link" href={destinationUrl} target="_blank" rel="noreferrer" aria-label={playable ? `Open ${channel.name} live page` : `Visit ${channel.name} website`}>
+          {playable ? (
+            <>
+              <img src={channel.image} alt={`${channel.name} live stream preview`} loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
             <span className="live-play"><Play size={28} fill="currentColor" /></span>
-          </button>
-        ) : (
-          <div className="live-channel-placeholder" style={brandStyle}>
-            {channel.logo ? <img className="live-channel-artwork-backdrop" src={channel.logo} alt="" aria-hidden="true" /> : null}
-            {channel.logo
-              ? <img className="live-channel-logo" src={channel.logo} alt={`${channel.name} logo`} loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
-              : <strong>{channel.name}</strong>}
-          </div>
-        )}
+            </>
+          ) : (
+            <div className="live-channel-placeholder" style={brandStyle}>
+              {channel.logo ? <img className="live-channel-artwork-backdrop" src={channel.logo} alt="" aria-hidden="true" /> : null}
+              {channel.logo
+                ? <img className="live-channel-logo" src={channel.logo} alt={`${channel.name} logo`} loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
+                : <strong>{channel.name}</strong>}
+            </div>
+          )}
+        </a>
         <span className={playable ? 'live-badge is-live' : 'live-badge'}><i />{playable ? 'Live now' : 'Channel'}</span>
       </div>
       <div className="live-channel-copy">
@@ -458,14 +452,11 @@ function LiveChannelCard({ channel, index }) {
           {channel.global ? <em>Always included</em> : null}
         </div>
         <h2>{channel.title}</h2>
-        <p>{playable ? 'Live on the broadcaster’s verified channel. Its own news site is available too.' : 'Not broadcasting on YouTube right now. Follow coverage on the broadcaster’s own site.'}</p>
+        <p>{playable ? 'Live right now — open the broadcaster’s verified live page.' : 'Not live right now — this card takes you to the broadcaster’s news website instead.'}</p>
         <div className="live-channel-actions">
-          {playing && playable
-            ? <a href={channel.watchUrl} target="_blank" rel="noreferrer">Open stream <ArrowUpRight size={17} /></a>
-            : playable
-              ? <button className="watch-live-button" onClick={() => setPlaying(true)}>Watch live <Radio size={17} /></button>
-              : null}
-          <a className="official-site-link" href={officialUrl} target="_blank" rel="noreferrer">Official site <ArrowUpRight size={17} /></a>
+          <a className={playable ? 'live-destination-link' : 'official-site-link'} href={destinationUrl} target="_blank" rel="noreferrer">
+            {playable ? 'Watch live' : 'Visit website'} <ArrowUpRight size={17} />
+          </a>
         </div>
       </div>
     </article>

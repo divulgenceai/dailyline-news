@@ -168,10 +168,9 @@ img { display: block; width: 100%; object-fit: cover; }
 .live-channel-card { min-width: 0; overflow: hidden; border: 1px solid #d8dbe2; background: white; box-shadow: 0 12px 34px rgba(15, 20, 34, .07); animation: story-in .58s cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--story-delay, 0ms); }
 .live-channel-card.global-live { border-color: #e8aab0; }
 .live-channel-media { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #170d11; }
-.live-channel-media > button { width: 100%; height: 100%; padding: 0; border: 0; background: #170d11; cursor: pointer; }
+.live-channel-media-link { display: block; width: 100%; height: 100%; background: #170d11; cursor: pointer; }
 .live-channel-media img { height: 100%; transition: transform .45s ease, filter .3s ease; }
-.live-channel-media > button:hover img { transform: scale(1.025); filter: brightness(.86); }
-.live-channel-media iframe { width: 100%; height: 100%; border: 0; }
+.live-channel-media-link:hover > img { transform: scale(1.025); filter: brightness(.86); }
 .live-play { position: absolute; top: 50%; left: 50%; display: grid; width: 64px; height: 64px; place-items: center; border-radius: 50%; background: #df2432; color: white; transform: translate(-50%, -50%); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
 .live-channel-placeholder { position: relative; display: grid; width: 100%; height: 100%; place-items: center; overflow: hidden; isolation: isolate; background: linear-gradient(140deg, color-mix(in srgb, var(--live-brand) 74%, #111), #120e11 72%); }
 .live-channel-artwork-backdrop { position: absolute; z-index: -1; inset: -30px; width: calc(100% + 60px); height: calc(100% + 60px) !important; object-fit: cover; opacity: .28; filter: blur(28px) saturate(1.15); transform: scale(1.12); }
@@ -190,8 +189,8 @@ img { display: block; width: 100%; object-fit: cover; }
 .live-channel-copy h2 { margin: 11px 0 10px; font: 500 clamp(28px, 2.8vw, 38px)/1.07 var(--serif); letter-spacing: -.035em; }
 .live-channel-copy p { min-height: 48px; margin: 0 0 18px; color: #565d69; font-size: 15px; line-height: 1.55; }
 .live-channel-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
-.live-channel-actions a, .watch-live-button { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: #c51f2d; cursor: pointer; text-decoration: none; font-size: 14px; font-weight: 700; }
-.watch-live-button { padding: 0 17px; background: #df2432; color: white; }
+.live-channel-actions a { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0; color: #c51f2d; text-decoration: none; font-size: 14px; font-weight: 700; }
+.live-channel-actions .live-destination-link { color: #c51f2d; }
 .live-channel-actions .official-site-link { color: #2e3645; }
 .live-loading { display: flex; min-height: 240px; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-weight: 600; }
 .live-loading span { width: 22px; height: 22px; border: 2px solid #e6b8bc; border-top-color: #df2432; border-radius: 50%; animation: video-spin .7s linear infinite; }
