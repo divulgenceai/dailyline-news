@@ -34,6 +34,7 @@ const editionByCode = new Map(editionOptions.map(edition => [edition.code, editi
 
 const blogTopics = [
   { label: 'All posts', value: 'All' },
+  { label: 'Palestine', value: 'Palestine' },
   { label: 'Technology', value: 'Tech' },
   { label: 'Gaming', value: 'Gaming' },
   { label: 'World', value: 'World' },
@@ -301,7 +302,7 @@ function Header({ active, setActive, blogTopic, setBlogTopic, query, setQuery, r
           <nav className="blog-topic-nav" aria-label="Blog topics">
             <strong>Browse blogs</strong>
             {blogTopics.map(topic => (
-              <button key={topic.value} className={blogTopic === topic.value ? 'active' : ''} onClick={() => { setBlogTopic(topic.value); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+              <button key={topic.value} className={`${blogTopic === topic.value ? 'active' : ''}${topic.value === 'Palestine' ? ' palestine-blog-topic' : ''}`} onClick={() => { setBlogTopic(topic.value); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
                 {topic.label}
               </button>
             ))}
@@ -888,11 +889,12 @@ function App() {
   useEffect(() => localStorage.setItem('dailyline-feed-saved', JSON.stringify(saved)), [saved])
 
   const visibleStories = useMemo(() => {
-    const dataset = active === 'Palestine' ? palestineStories : stories
+    const isPalestineBlog = active === 'Blogs' && blogTopic === 'Palestine'
+    const dataset = active === 'Palestine' || isPalestineBlog ? palestineStories : stories
     const loweredQuery = query.trim().toLowerCase()
     const filtered = dataset.filter(story => {
       const topicMatch = active === 'Blogs'
-        ? story.type === 'article' && (blogTopic === 'All' || story.category === blogTopic)
+        ? story.type === 'article' && (blogTopic === 'All' || isPalestineBlog || story.category === blogTopic)
         : active === 'Local'
           ? story.isRegional
           : active === 'Watch'
@@ -937,7 +939,7 @@ function App() {
             saved={saved}
             toggleSaved={toggleSaved}
             openStory={setSelectedStory}
-            status={query ? `${visibleStories.length} matching reports` : active === 'Local' ? `${localHealthyCount} local sources online` : active === 'Blogs' ? `${visibleStories.length} posts from free sources` : `${healthyCount} sources online`}
+            status={query ? `${visibleStories.length} matching reports` : active === 'Local' ? `${localHealthyCount} local sources online` : active === 'Blogs' ? blogTopic === 'Palestine' ? `${visibleStories.length} verified reports · updated every 30 minutes` : `${visibleStories.length} posts from free sources` : `${healthyCount} sources online`}
           />
         ) : null}
         {fetchedAt ? <footer><p>Current edition complete</p><span>{edition?.name || 'Local'} edition · Last checked {relativeTime(fetchedAt)} · Hourly updates · Palestine every 30 minutes · Free original sources</span></footer> : null}

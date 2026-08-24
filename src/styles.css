@@ -87,6 +87,8 @@ img { display: block; width: 100%; object-fit: cover; }
 .blog-topic-nav button:hover, .blog-topic-nav button.active { color: var(--blue); }
 .blog-topic-nav button.active { font-weight: 600; }
 .blog-topic-nav button.active::after { transform: scaleX(1); }
+.blog-topic-nav button.palestine-blog-topic { color: var(--watermelon-dark); font-weight: 600; }
+.blog-topic-nav button.palestine-blog-topic::after { background: var(--rind); }
 
 .feed-shell { width: min(1180px, calc(100% - 64px)); margin: 0 auto; padding-top: 36px; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; padding-bottom: 22px; }
