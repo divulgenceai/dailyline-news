@@ -213,18 +213,18 @@ function SourceMedia({ story, details }) {
     : <a className="source-video" href={details.canonicalUrl || story.url} target="_blank" rel="noreferrer" aria-label={`Watch ${story.title} on ${story.source}`}>{videoCard}</a>
 }
 
-function ReaderBody({ blocks, source, wordCount, media }) {
+function ReaderBody({ blocks, source, wordCount, media, complete = false }) {
   if (!blocks?.length) return null
   return (
     <section className="reader-article">
       <header>
         <div>
           <span>Reader view</span>
-          <h2>{media ? 'Report notes' : 'Full article'}</h2>
+          <h2>{media ? 'Report notes' : complete ? 'Full article' : 'Available article text'}</h2>
         </div>
         {wordCount ? <small>{wordCount.toLocaleString(browserLocale)} words</small> : null}
       </header>
-      <p className="reader-credit">Imported from the public {source} {media ? 'video' : 'article'} page with its original order and attribution.</p>
+      <p className="reader-credit">{complete && !media ? 'Complete text' : 'Available text'} from the public {source} {media ? 'video' : 'article'} source, with attribution.</p>
       <div className="reader-body">
         {blocks.map((block, index) => {
           const key = `${block.type}-${index}`
@@ -495,7 +495,7 @@ function PalestineTeaser({ stories, fetchedAt, openDesk, openStory }) {
         <p>{fetchedAt ? `Coverage checked ${relativeTime(fetchedAt)}` : 'Updated every 30 minutes'}</p>
       </div>
       {lead ? <button className="palestine-lead-link" onClick={() => openStory(lead)}>{lead.title}</button> : null}
-      <button className="evidence-desk-link" onClick={openDesk}>Open evidence desk <ArrowRight size={22} /></button>
+      <button className="evidence-desk-link" onClick={openDesk}>Open news <ArrowRight size={22} /></button>
     </section>
   )
 }
@@ -589,7 +589,7 @@ function PalestineDesk({ stories, fetchedAt, loading, error, refresh, openStory 
         <p>Live reporting from multiple publishers. Updated every 30 minutes.</p>
         <div><span>{stories.length} reports</span><span>·</span><span>{publisherCount} publishers</span><button onClick={refresh} disabled={loading}><RefreshCw size={18} className={loading ? 'spin' : ''} /> Refresh coverage</button></div>
       </div>
-      <div className="evidence-title"><h2>Evidence desk</h2><span>{fetchedAt ? `Checked ${relativeTime(fetchedAt)}` : 'Connecting to sources'}</span></div>
+      <div className="evidence-title"><h2>News</h2><span>{fetchedAt ? `Checked ${relativeTime(fetchedAt)}` : 'Connecting to sources'}</span></div>
       {error && !stories.length ? <div className="error-state"><h2>Coverage is temporarily unavailable.</h2><p>{error}</p></div> : null}
       <div className="evidence-list">{stories.map((story, index) => <EvidenceRow key={story.id} story={story} openStory={openStory} index={index} />)}</div>
       <p className="methodology-note">Evidence shown here comes directly from publisher feeds. Follow each original report for full context, corrections, and continuing updates.</p>
@@ -598,8 +598,8 @@ function PalestineDesk({ stories, fetchedAt, loading, error, refresh, openStory 
 }
 
 function StoryDetail({ story, close, saved, toggleSaved }) {
-  const [sourceDetails, setSourceDetails] = useState(() => sourceDetailsCache.get(story.url) || null)
-  const [detailsLoading, setDetailsLoading] = useState(() => !sourceDetailsCache.has(story.url))
+  const [sourceDetails, setSourceDetails] = useState(() => story.sourceDetails || sourceDetailsCache.get(story.url) || null)
+  const [detailsLoading, setDetailsLoading] = useState(() => !story.sourceDetails && !sourceDetailsCache.has(story.url))
   const [detailsError, setDetailsError] = useState('')
   useEffect(() => {
     const onKeyDown = event => event.key === 'Escape' && close()
@@ -613,6 +613,12 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
   }, [close])
 
   useEffect(() => {
+    if (story.sourceDetails) {
+      sourceDetailsCache.set(story.url, story.sourceDetails)
+      setSourceDetails(story.sourceDetails)
+      setDetailsLoading(false)
+      return undefined
+    }
     const cached = sourceDetailsCache.get(story.url)
     if (cached) {
       setSourceDetails(cached)
@@ -637,7 +643,7 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
     }
     void loadSourceDetails()
     return () => controller.abort()
-  }, [story.url])
+  }, [story.url, story.sourceDetails])
 
   const enrichedStory = {
     ...story,
@@ -647,6 +653,10 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
   }
   const excerpt = sourceDetails?.description || story.description || story.content
   const detail = story.content && !String(excerpt || '').includes(story.content) ? story.content : ''
+  const useFeedBody = story.feedFullText && story.feedBodyWordCount > (sourceDetails?.bodyWordCount || 0)
+  const readerBody = useFeedBody ? story.feedBody : sourceDetails?.body
+  const readerWordCount = useFeedBody ? story.feedBodyWordCount : sourceDetails?.bodyWordCount
+  const fullArticle = Boolean(story.sourceDetails || useFeedBody)
   return (
     <div className="detail-overlay" role="presentation" onMouseDown={event => event.target === event.currentTarget && close()}>
       <article className="detail-panel" role="dialog" aria-modal="true" aria-labelledby="detail-title">
@@ -654,7 +664,7 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
         <button className="detail-close" onClick={close} aria-label="Close story"><X size={25} /></button>
         <SourceLine story={enrichedStory} />
         <h1 id="detail-title">{story.title}</h1>
-        <div className="access-note"><span aria-hidden="true">✓</span>{story.access || 'Free to read'} original source</div>
+        <div className="access-note"><span aria-hidden="true">✓</span>{fullArticle ? 'Full article available here' : 'Publisher source details'}</div>
         <SourceMedia story={enrichedStory} details={sourceDetails} />
         {detailsLoading ? <div className="source-detail-status" role="status"><span aria-hidden="true" />Collecting details from {story.source}…</div> : null}
         {detailsError ? <p className="source-detail-error">The live source details could not be reached, so the publisher feed information is shown instead.</p> : null}
@@ -669,14 +679,14 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
             <p>This publisher feed supplied a headline and original link, but no text excerpt. Open the report for its full evidence and context.</p>
           </section>
         )}
-        {detail && !sourceDetails?.body?.length ? (
+        {detail && !readerBody?.length ? (
           <section className="publisher-briefing">
             <h2>Available publisher detail</h2>
             {toParagraphs(detail).map((paragraph, index) => <p key={`${story.id}-paragraph-${index}`}>{paragraph}</p>)}
             <small>{story.feedTextStatus || 'Publisher-supplied feed text'}. Dailyline preserves attribution and links to the complete original.</small>
           </section>
         ) : null}
-        <ReaderBody blocks={sourceDetails?.body} source={story.source} wordCount={sourceDetails?.bodyWordCount} media={sourceDetails?.media} />
+        <ReaderBody blocks={readerBody} source={story.source} wordCount={readerWordCount} media={sourceDetails?.media} complete={fullArticle} />
         <section className="evidence-trail">
           <h2>Evidence trail</h2>
           <dl>
@@ -689,7 +699,7 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
             {sourceDetails?.language ? <div><dt>Language</dt><dd>{sourceDetails.language.toUpperCase()}</dd></div> : null}
             {sourceDetails?.retrievedAt ? <div><dt>Checked</dt><dd>{publishedDate.format(new Date(sourceDetails.retrievedAt))}</dd></div> : null}
             <div><dt>Format</dt><dd>{sourceDetails?.media ? 'Video report' : 'Article'}</dd></div>
-            {sourceDetails?.bodyWordCount ? <div><dt>Reader text</dt><dd>{sourceDetails.bodyWordCount.toLocaleString(browserLocale)} words</dd></div> : null}
+            {readerWordCount ? <div><dt>Reader text</dt><dd>{readerWordCount.toLocaleString(browserLocale)} words</dd></div> : null}
             <div><dt>Access</dt><dd>{story.access || 'Free to read'}</dd></div>
             {story.sourceHomepage ? <div><dt>Publisher site</dt><dd><a href={story.sourceHomepage} target="_blank" rel="noreferrer">Visit publisher <ArrowUpRight size={16} /></a></dd></div> : null}
             {story.sourceFeed ? <div><dt>Feed</dt><dd><a href={story.sourceFeed} target="_blank" rel="noreferrer">View source feed <ArrowUpRight size={16} /></a></dd></div> : null}
@@ -747,6 +757,7 @@ function App() {
   const [fetchedAt, setFetchedAt] = useState(null)
   const [palestineStories, setPalestineStories] = useState([])
   const [palestineFetchedAt, setPalestineFetchedAt] = useState(null)
+  const [blogFeed, setBlogFeed] = useState({ key: '', items: [], fetchedAt: null })
   const [liveChannels, setLiveChannels] = useState([])
   const [liveFetchedAt, setLiveFetchedAt] = useState(null)
   const [active, setActive] = useState('All')
@@ -754,9 +765,11 @@ function App() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [palestineLoading, setPalestineLoading] = useState(true)
+  const [blogLoading, setBlogLoading] = useState(false)
   const [liveLoading, setLiveLoading] = useState(true)
   const [error, setError] = useState('')
   const [palestineError, setPalestineError] = useState('')
+  const [blogError, setBlogError] = useState('')
   const [liveError, setLiveError] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [selectedStory, setSelectedStory] = useState(null)
@@ -766,6 +779,8 @@ function App() {
   const [locating, setLocating] = useState(() => !readEdition())
   const [locationMessage, setLocationMessage] = useState('')
   const editionCode = edition?.code || ''
+  const blogKey = `${editionCode}:${blogTopic}`
+  const blogStories = blogFeed.key === blogKey ? blogFeed.items : []
 
   const chooseEdition = useCallback(option => {
     setLoading(true)
@@ -775,6 +790,7 @@ function App() {
     setStories([])
     setSources([])
     setFetchedAt(null)
+    setBlogFeed({ key: '', items: [], fetchedAt: null })
     setLiveChannels([])
     setLiveFetchedAt(null)
     setLiveLoading(true)
@@ -848,6 +864,23 @@ function App() {
     }
   }, [])
 
+  const loadBlogs = useCallback(async force => {
+    if (!editionCode) return
+    const key = `${editionCode}:${blogTopic}`
+    setBlogLoading(true)
+    setBlogError('')
+    try {
+      const params = new URLSearchParams({ country: editionCode, topic: blogTopic })
+      if (force) params.set('refresh', '1')
+      const data = await fetchJson(`/api/blogs?${params}`, 29_000)
+      setBlogFeed({ key, items: data.items, fetchedAt: data.fetchedAt })
+    } catch (reason) {
+      setBlogError(reason.message)
+    } finally {
+      setBlogLoading(false)
+    }
+  }, [blogTopic, editionCode])
+
   const loadLive = useCallback(async force => {
     if (!editionCode) return
     setLiveLoading(true)
@@ -869,12 +902,14 @@ function App() {
   useEffect(() => { if (edition) void loadFeed(false) }, [edition, loadFeed])
   useEffect(() => { if (edition) void loadLive(false) }, [edition, loadLive])
   useEffect(() => { void loadPalestine(false) }, [loadPalestine])
+  useEffect(() => { if (active === 'Blogs' && edition) void loadBlogs(false) }, [active, edition, loadBlogs])
   useEffect(() => {
     const hourlyTimer = window.setInterval(() => void loadFeed(false), HOUR_MS)
     const palestineTimer = window.setInterval(() => void loadPalestine(false), HALF_HOUR_MS)
     const liveTimer = window.setInterval(() => void loadLive(false), LIVE_REFRESH_MS)
-    return () => { window.clearInterval(hourlyTimer); window.clearInterval(palestineTimer); window.clearInterval(liveTimer) }
-  }, [loadFeed, loadLive, loadPalestine])
+    const blogTimer = window.setInterval(() => { if (active === 'Blogs') void loadBlogs(false) }, HALF_HOUR_MS)
+    return () => { window.clearInterval(hourlyTimer); window.clearInterval(palestineTimer); window.clearInterval(liveTimer); window.clearInterval(blogTimer) }
+  }, [active, loadBlogs, loadFeed, loadLive, loadPalestine])
   useEffect(() => {
     let dailyTimer
     const scheduleDailyEdition = () => {
@@ -889,12 +924,11 @@ function App() {
   useEffect(() => localStorage.setItem('dailyline-feed-saved', JSON.stringify(saved)), [saved])
 
   const visibleStories = useMemo(() => {
-    const isPalestineBlog = active === 'Blogs' && blogTopic === 'Palestine'
-    const dataset = active === 'Palestine' || isPalestineBlog ? palestineStories : stories
+    const dataset = active === 'Palestine' ? palestineStories : active === 'Blogs' ? blogStories : stories
     const loweredQuery = query.trim().toLowerCase()
     const filtered = dataset.filter(story => {
       const topicMatch = active === 'Blogs'
-        ? story.type === 'article' && (blogTopic === 'All' || isPalestineBlog || story.category === blogTopic)
+        ? true
         : active === 'Local'
           ? story.isRegional
           : active === 'Watch'
@@ -904,7 +938,7 @@ function App() {
       return topicMatch && queryMatch
     })
     return active === 'Local' ? interleaveStoriesBySource(filtered) : filtered
-  }, [active, blogTopic, palestineStories, query, stories])
+  }, [active, blogStories, palestineStories, query, stories])
 
   const toggleSaved = useCallback(id => setSaved(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]), [])
   const closeStory = useCallback(() => setSelectedStory(null), [])
@@ -912,7 +946,7 @@ function App() {
     setActive('Palestine')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
-  const refreshAll = useCallback(() => void Promise.all([edition ? loadFeed(true) : Promise.resolve(), edition ? loadLive(true) : Promise.resolve(), loadPalestine(true)]), [edition, loadFeed, loadLive, loadPalestine])
+  const refreshAll = useCallback(() => void Promise.all([edition ? loadFeed(true) : Promise.resolve(), edition ? loadLive(true) : Promise.resolve(), loadPalestine(true), active === 'Blogs' ? loadBlogs(true) : Promise.resolve()]), [active, edition, loadBlogs, loadFeed, loadLive, loadPalestine])
   const activeLabel = topics.find(topic => topic.value === active)?.label || active
   const activeBlogLabel = blogTopics.find(topic => topic.value === blogTopic)?.label || blogTopic
   const healthyCount = sources.filter(source => source.ok).length
@@ -920,11 +954,13 @@ function App() {
 
   return (
     <>
-      <Header active={active} setActive={setActive} blogTopic={blogTopic} setBlogTopic={setBlogTopic} query={query} setQuery={setQuery} refresh={refreshAll} loading={loading || palestineLoading || liveLoading} menuOpen={menuOpen} setMenuOpen={setMenuOpen} edition={edition} locating={locating} openEditionPicker={() => setEditionPickerOpen(true)} />
+      <Header active={active} setActive={setActive} blogTopic={blogTopic} setBlogTopic={setBlogTopic} query={query} setQuery={setQuery} refresh={refreshAll} loading={loading || palestineLoading || blogLoading || liveLoading} menuOpen={menuOpen} setMenuOpen={setMenuOpen} edition={edition} locating={locating} openEditionPicker={() => setEditionPickerOpen(true)} />
       <main className="feed-shell" id="top">
-        {loading && !stories.length ? <Skeleton /> : null}
-        {error && !stories.length ? <section className="error-state"><h1>We couldn’t reach the live sources.</h1><p>{error}</p><button onClick={() => loadFeed(true)}>Try again</button></section> : null}
-        {!loading && !error && !visibleStories.length && active !== 'Palestine' && active !== 'Live' ? <section className="error-state"><h1>No matching stories.</h1><p>Try another topic or search.</p></section> : null}
+        {active === 'Blogs' && blogLoading && !blogStories.length ? <Skeleton /> : null}
+        {active !== 'Blogs' && loading && !stories.length ? <Skeleton /> : null}
+        {active !== 'Blogs' && error && !stories.length ? <section className="error-state"><h1>We couldn’t reach the live sources.</h1><p>{error}</p><button onClick={() => loadFeed(true)}>Try again</button></section> : null}
+        {active === 'Blogs' && blogError && !blogStories.length ? <section className="error-state"><h1>Blogs are temporarily unavailable.</h1><p>{blogError}</p><button onClick={() => loadBlogs(true)}>Try again</button></section> : null}
+        {!loading && !blogLoading && !blogError && !visibleStories.length && active !== 'Palestine' && active !== 'Live' ? <section className="error-state"><h1>{active === 'Blogs' ? 'No complete public articles right now.' : 'No matching stories.'}</h1><p>{active === 'Blogs' ? 'Try another blog topic or check back after the next update.' : 'Try another topic or search.'}</p></section> : null}
         {!query && active === 'All' && stories.length ? (
           <HomeView stories={stories} palestineStories={palestineStories} palestineFetchedAt={palestineFetchedAt} saved={saved} toggleSaved={toggleSaved} openStory={setSelectedStory} openPalestine={openPalestine} edition={edition} />
         ) : null}
@@ -939,7 +975,7 @@ function App() {
             saved={saved}
             toggleSaved={toggleSaved}
             openStory={setSelectedStory}
-            status={query ? `${visibleStories.length} matching reports` : active === 'Local' ? `${localHealthyCount} local sources online` : active === 'Blogs' ? blogTopic === 'Palestine' ? `${visibleStories.length} verified reports · updated every 30 minutes` : `${visibleStories.length} posts from free sources` : `${healthyCount} sources online`}
+            status={query ? `${visibleStories.length} matching reports` : active === 'Local' ? `${localHealthyCount} local sources online` : active === 'Blogs' ? `${visibleStories.length} full articles · checked every 30 minutes` : `${healthyCount} sources online`}
           />
         ) : null}
         {fetchedAt ? <footer><p>Current edition complete</p><span>{edition?.name || 'Local'} edition · Last checked {relativeTime(fetchedAt)} · Hourly updates · Palestine every 30 minutes · Free original sources</span></footer> : null}

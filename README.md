@@ -9,11 +9,12 @@ A clean, mobile-ready live news feed built with React, Vite, and a small server-
 - A red Live desk that checks official regional broadcaster channels every two minutes and always includes Al Jazeera English
 - Australian reporting from 7NEWS, SBS News, Guardian Australia, and The Conversation, plus playable 9News videos
 - Clickable story readers with publisher-provided feed text, source-page metadata, evidence links, and the original publisher URL
+- A Blogs section that checks public article pages for substantial reader text and omits account-restricted or incomplete posts; it refreshes every 30 minutes while open
 - Location-based edition selection with a manual country picker fallback
 - Responsive desktop and mobile layouts, no advertising, and no paid news API keys
 - Stale-cache fallback and per-source isolation so one unavailable publisher does not take down the feed
 
-All stories remain attributed to their publishers. Availability of source-page reader text depends on what each publisher exposes publicly; the original free source is always linked.
+All stories remain attributed to their publishers. Blog reader text depends on what each publisher exposes publicly; Dailyline does not unlock account-gated or paywalled content. The original source is always linked. Before republishing full articles on a public production site, confirm the publisher's redistribution terms or obtain permission.
 
 ## Run locally
 
@@ -37,6 +38,6 @@ The edition check fails if any selectable country returns no genuine country-spe
 
 ## Deploy to Vercel
 
-Import this GitHub repository into Vercel and keep the detected Vite settings. The committed `vercel.json` builds the frontend into `dist`, while the files under `api/` deploy the feed, Palestine, story-detail, and health endpoints as Node.js functions.
+Import this GitHub repository into Vercel and keep the detected Vite settings. The committed `vercel.json` builds the frontend into `dist`, while the files under `api/` deploy the feed, Blogs, Palestine, story-detail, and health endpoints as Node.js functions.
 
 No environment variables are required.

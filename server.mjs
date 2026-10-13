@@ -23,7 +23,7 @@ const regionalArticleFeeds = {
     { name: '7NEWS', category: 'Local', url: 'https://7news.com.au/news/rss', homepage: 'https://7news.com.au/news', regional: true },
     { name: 'SBS News', category: 'Local', url: 'https://www.sbs.com.au/news/topic/australia/feed', homepage: 'https://www.sbs.com.au/news/topic/australia', regional: true },
     { name: 'Guardian Australia', category: 'Local', url: 'https://www.theguardian.com/australia-news/rss', homepage: 'https://www.theguardian.com/au', regional: true },
-    { name: 'The Conversation', category: 'Local', url: 'https://theconversation.com/au/articles.atom', homepage: 'https://theconversation.com/au', regional: true },
+    { name: 'The Conversation', category: 'Local', url: 'https://theconversation.com/au/articles.atom', homepage: 'https://theconversation.com/au', regional: true, fullTextFeed: true },
   ],
   NZ: [
     { name: 'RNZ', category: 'Local', url: 'https://www.rnz.co.nz/rss/national.xml', homepage: 'https://www.rnz.co.nz/news/national', regional: true },
@@ -350,6 +350,7 @@ const collectSourceDetails = async url => {
   const embedUrl = isVideoPage ? safeEmbedUrl(videoData.embedUrl || metaValue(html, 'og:video:url') || metaValue(html, 'og:video')) : ''
   const embeddingFlag = html.match(/"isEmbeddingAllowed":(true|false)/i)?.[1]
   const bodyWordCount = body.filter(block => block.text).reduce((total, block) => total + block.text.split(/\s+/).filter(Boolean).length, 0)
+  const freeAccessFlag = articleData.isAccessibleForFree ?? jsonLd.isAccessibleForFree
   const data = {
     title: cleanText(jsonLd.headline || metaValue(html, 'og:title')),
     description,
@@ -363,6 +364,7 @@ const collectSourceDetails = async url => {
     image,
     body,
     bodyWordCount,
+    accessRestricted: freeAccessFlag === false || String(freeAccessFlag).toLowerCase() === 'false',
     media: isVideoPage ? {
       type: 'video',
       title: cleanText(videoData.name || jsonLd.headline || metaValue(html, 'og:title')),
@@ -440,9 +442,14 @@ const parseArticleFeed = async source => {
       .trim()
       .slice(0, 520)
     const description = rawDescription === rawTitle || rawDescription === `${title} ${publisher}` ? '' : rawDescription
-    const publisherText = cleanRichText(textOf(item.encoded || item.content || item.description || item.summary))
-    const rawContent = publisherText.slice(0, 3200)
+    const richFeedHtml = textOf(item.encoded || item.content)
+    const publisherText = cleanRichText(richFeedHtml || textOf(item.description || item.summary))
+    const rawContent = publisherText.slice(0, 70_000)
     const fullContent = rawContent === rawTitle || rawContent === `${title} ${publisher}` ? '' : rawContent
+    const feedBody = source.fullTextFeed && isAllowedArticleUrl(url)
+      ? readerBlocks(`<article>${richFeedHtml}</article>`, url, firstImage(item))
+      : []
+    const feedBodyWordCount = feedBody.filter(block => block.text).reduce((total, block) => total + block.text.split(/\s+/).filter(Boolean).length, 0)
     const authorValue = item.author?.name || item.author || item.creator
     const updatedValue = textOf(item.updated || item.modified)
     return {
@@ -454,15 +461,18 @@ const parseArticleFeed = async source => {
       title,
       description,
       content: fullContent,
+      feedBody,
+      feedBodyWordCount,
+      feedFullText: Boolean(source.fullTextFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000),
       url,
       image: firstImage(item),
       publishedAt: new Date(publishedAt).toISOString(),
       updatedAt: updatedValue && !Number.isNaN(Date.parse(updatedValue)) ? new Date(updatedValue).toISOString() : null,
       author: cleanText(textOf(authorValue)),
-      access: 'Free to read',
+      access: 'Publisher source',
       sourceHomepage: source.homepage,
       sourceFeed: source.url,
-      feedTextStatus: publisherText.length > 3200 ? 'Extended publisher excerpt' : publisherText ? 'Publisher-supplied feed text' : 'Headline and source link',
+      feedTextStatus: source.fullTextFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000 ? 'Full publisher feed text' : publisherText.length > 70_000 ? 'Publisher excerpt' : publisherText ? 'Publisher-supplied feed text' : 'Headline and source link',
     }
   }).filter(item => item.title && item.url && !Number.isNaN(Date.parse(item.publishedAt)) && (!source.filter || source.filter.test(`${item.title} ${item.description}`)))
 }
@@ -537,12 +547,16 @@ const resolveLiveChannel = async channel => {
 const feedCaches = new Map()
 let palestineCache = { items: [], fetchedAt: 0, sources: [] }
 const liveCaches = new Map()
+const blogCaches = new Map()
 const feedInFlight = new Map()
 let palestineInFlight = null
 const liveInFlight = new Map()
+const blogInFlight = new Map()
 const cacheForMs = 60 * 60 * 1000
 const palestineCacheForMs = 30 * 60 * 1000
 const liveCacheForMs = 2 * 60 * 1000
+const blogCacheForMs = 30 * 60 * 1000
+const blogCategories = ['Palestine', 'Local', 'Tech', 'Gaming', 'World', 'Culture', 'History']
 
 const normalizeEdition = value => {
   const code = String(value || '').toUpperCase()
@@ -619,6 +633,64 @@ export const collectPalestine = async force => {
     return await palestineInFlight
   } finally {
     palestineInFlight = null
+  }
+}
+
+const verifyPublicBlog = async story => {
+  try {
+    // A live blog is an open-ended feed: its on-page text may keep growing after
+    // our reader snapshot, so do not label it as a complete article.
+    if (/\/live\//i.test(new URL(story.url).pathname)) return null
+    if (story.feedFullText) return {
+      ...story,
+      access: 'Full text on Dailyline',
+      sourceDetails: {
+        body: story.feedBody,
+        bodyWordCount: story.feedBodyWordCount,
+        canonicalUrl: story.url,
+        retrievedAt: new Date().toISOString(),
+        fromFeed: true,
+      },
+    }
+    const details = await collectSourceDetails(story.url)
+    const paragraphs = details.body.filter(block => block.type === 'paragraph' || block.type === 'list-item').length
+    const destination = new URL(details.canonicalUrl || story.url)
+    if (details.accessRestricted || details.media || /\/(?:login|signin|subscribe|register)(?:\/|$)/i.test(destination.pathname)) return null
+    if (details.bodyWordCount < 180 || paragraphs < 3 || details.body.length >= 140) return null
+    return { ...story, access: 'Full text on Dailyline', sourceDetails: details }
+  } catch {
+    return null
+  }
+}
+
+export const collectBlogs = async (editionValue, topicValue = 'All', force = false) => {
+  const edition = normalizeEdition(editionValue)
+  const topic = blogCategories.includes(topicValue) ? topicValue : 'All'
+  const key = `${edition}:${topic}`
+  const cached = blogCaches.get(key)
+  if (!force && cached && Date.now() - cached.fetchedAt < blogCacheForMs) return cached
+  if (blogInFlight.has(key)) return blogInFlight.get(key)
+  const collection = (async () => {
+    const [feed, palestine] = await Promise.all([
+      topic === 'Palestine' ? Promise.resolve(null) : collectFeed(edition, force),
+      topic === 'Palestine' || topic === 'All' ? collectPalestine(force) : Promise.resolve(null),
+    ])
+    const articles = (feed?.items || []).filter(item => item.type === 'article')
+    const palestineArticles = palestine?.items || []
+    const candidates = topic === 'All'
+      ? blogCategories.flatMap(category => (category === 'Palestine' ? palestineArticles : articles.filter(item => item.category === category)).slice(0, 3))
+      : (topic === 'Palestine' ? palestineArticles : articles.filter(item => item.category === topic)).slice(0, 12)
+    const checked = await Promise.all(candidates.map(verifyPublicBlog))
+    const items = checked.filter(Boolean).sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+    const data = { items, fetchedAt: Date.now(), edition, topic, checkedCount: candidates.length }
+    blogCaches.set(key, data)
+    return data
+  })()
+  blogInFlight.set(key, collection)
+  try {
+    return await collection
+  } finally {
+    blogInFlight.delete(key)
   }
 }
 
@@ -703,6 +775,16 @@ export const handlePalestine = async (request, response) => {
   }
 }
 
+export const handleBlogs = async (request, response) => {
+  try {
+    const blogs = await collectBlogs(queryValue(request, 'country'), String(queryValue(request, 'topic') || 'All'), queryValue(request, 'refresh') === '1')
+    response.setHeader('Cache-Control', cacheHeader(900, 300))
+    response.json({ ...blogs, fetchedAt: new Date(blogs.fetchedAt).toISOString() })
+  } catch (error) {
+    response.status(503).json({ error: error.message })
+  }
+}
+
 export const handleLive = async (request, response) => {
   const edition = normalizeEdition(queryValue(request, 'country'))
   const force = queryValue(request, 'refresh') === '1'
@@ -745,6 +827,7 @@ export const handleHealth = (_request, response) => response.json({
 
 app.get('/api/feed', handleFeed)
 app.get('/api/palestine', handlePalestine)
+app.get('/api/blogs', handleBlogs)
 app.get('/api/live', handleLive)
 app.get('/api/story-details', handleStoryDetails)
 app.get('/api/health', handleHealth)
