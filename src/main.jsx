@@ -598,8 +598,8 @@ function PalestineDesk({ stories, fetchedAt, loading, error, refresh, openStory 
 }
 
 function StoryDetail({ story, close, saved, toggleSaved }) {
-  const [sourceDetails, setSourceDetails] = useState(() => story.sourceDetails || sourceDetailsCache.get(story.url) || null)
-  const [detailsLoading, setDetailsLoading] = useState(() => !story.sourceDetails && !sourceDetailsCache.has(story.url))
+  const [sourceDetails, setSourceDetails] = useState(() => story.summaryOnly ? null : story.sourceDetails || sourceDetailsCache.get(story.url) || null)
+  const [detailsLoading, setDetailsLoading] = useState(() => !story.summaryOnly && !story.sourceDetails && !sourceDetailsCache.has(story.url))
   const [detailsError, setDetailsError] = useState('')
   useEffect(() => {
     const onKeyDown = event => event.key === 'Escape' && close()
@@ -613,6 +613,11 @@ function StoryDetail({ story, close, saved, toggleSaved }) {
   }, [close])
 
   useEffect(() => {
+    if (story.summaryOnly) {
+      setSourceDetails(null)
+      setDetailsLoading(false)
+      return undefined
+    }
     if (story.sourceDetails) {
       sourceDetailsCache.set(story.url, story.sourceDetails)
       setSourceDetails(story.sourceDetails)
@@ -950,7 +955,7 @@ function App() {
   const activeLabel = topics.find(topic => topic.value === active)?.label || active
   const activeBlogLabel = blogTopics.find(topic => topic.value === blogTopic)?.label || blogTopic
   const healthyCount = sources.filter(source => source.ok).length
-  const localHealthyCount = sources.filter(source => source.ok && source.regional).length
+  const localHealthyCount = sources.filter(source => source.ok && source.regional && source.active !== false).length
 
   return (
     <>

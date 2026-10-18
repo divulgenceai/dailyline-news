@@ -48,6 +48,8 @@ const regionalArticleFeeds = {
   ],
   PK: [
     { name: 'Dawn', category: 'Local', url: 'https://www.dawn.com/feeds/home', homepage: 'https://www.dawn.com', regional: true },
+    { name: 'The Express Tribune', category: 'Local', url: 'https://tribune.com.pk/feed/pakistan', homepage: 'https://tribune.com.pk/pakistan', regional: true, summaryOnly: true },
+    { name: 'ARY News', category: 'Local', url: 'https://arynews.tv/category/pakistan/feed/', homepage: 'https://arynews.tv/category/pakistan/', regional: true, summaryOnly: true, fallback: true },
   ],
   SG: [
     { name: 'CNA', category: 'Local', url: 'https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml', homepage: 'https://www.channelnewsasia.com', regional: true },
@@ -460,9 +462,10 @@ const parseArticleFeed = async source => {
       source: publisher,
       category: source.category,
       isRegional: Boolean(source.regional),
+      summaryOnly: Boolean(source.summaryOnly),
       title,
       description,
-      content: fullContent,
+      content: source.summaryOnly ? '' : fullContent,
       feedBody,
       feedBodyWordCount,
       feedFullText: Boolean(republishableFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000),
@@ -474,7 +477,7 @@ const parseArticleFeed = async source => {
       access: 'Publisher source',
       sourceHomepage: source.homepage,
       sourceFeed: source.url,
-      feedTextStatus: republishableFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000 ? 'Full publisher feed text' : publisherText.length > 70_000 ? 'Publisher excerpt' : publisherText ? 'Publisher-supplied feed text' : 'Headline and source link',
+      feedTextStatus: source.summaryOnly ? 'Publisher-supplied summary' : republishableFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000 ? 'Full publisher feed text' : publisherText.length > 70_000 ? 'Publisher excerpt' : publisherText ? 'Publisher-supplied feed text' : 'Headline and source link',
     }
   }).filter(item => item.title && item.url && !Number.isNaN(Date.parse(item.publishedAt)) && (!source.filter || source.filter.test(`${item.title} ${item.description}`)))
 }
@@ -574,12 +577,14 @@ export const collectFeed = async (editionValue, force) => {
     const editionArticleFeeds = regionalArticleFeeds[edition] || []
     const editionVideoFeeds = regionalVideoFeeds[edition] || []
     const requests = [
-      ...[...editionArticleFeeds, ...articleFeeds].map(source => parseArticleFeed(source).then(items => ({ source: source.name, regional: Boolean(source.regional), items })).catch(error => ({ source: source.name, regional: Boolean(source.regional), items: [], error: error.message }))),
+      ...[...editionArticleFeeds, ...articleFeeds].map(source => parseArticleFeed(source).then(items => ({ source: source.name, regional: Boolean(source.regional), fallback: Boolean(source.fallback), items })).catch(error => ({ source: source.name, regional: Boolean(source.regional), fallback: Boolean(source.fallback), items: [], error: error.message }))),
       ...[...editionVideoFeeds, ...videoFeeds].map(source => parseVideoFeed(source).then(items => ({ source: `${source.name} Video`, regional: Boolean(source.regional), items })).catch(error => ({ source: `${source.name} Video`, regional: Boolean(source.regional), items: [], error: error.message }))),
     ]
     const results = await Promise.all(requests)
+    const hasPrimaryRegional = results.some(result => result.regional && !result.fallback && result.items.length)
+    const activeResults = results.filter(result => !result.fallback || !hasPrimaryRegional)
     const seen = new Set()
-    const items = results.flatMap(result => result.items)
+    const items = activeResults.flatMap(result => result.items)
       .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
       .filter(item => {
         const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80)
@@ -593,7 +598,7 @@ export const collectFeed = async (editionValue, force) => {
       fetchedAt: Date.now(),
       edition,
       editionName: editionNames[edition] || editionNames.GLOBAL,
-      sources: results.map(result => ({ name: result.source, regional: result.regional, ok: !result.error, error: result.error || null })),
+      sources: results.map(result => ({ name: result.source, regional: result.regional, active: !result.fallback || !hasPrimaryRegional, ok: !result.error, error: result.error || null })),
     }
     feedCaches.set(edition, data)
     return data
@@ -640,6 +645,7 @@ export const collectPalestine = async force => {
 
 const verifyPublicBlog = async story => {
   try {
+    if (story.summaryOnly) return null
     // A live blog is an open-ended feed: its on-page text may keep growing after
     // our reader snapshot, so do not label it as a complete article.
     if (/\/live\//i.test(new URL(story.url).pathname)) return null

@@ -1,11 +1,20 @@
 import { collectFeed, collectLive, collectPalestine } from '../server.mjs'
 
 const editions = ['AU', 'NZ', 'US', 'CA', 'GB', 'IE', 'IN', 'PK', 'SG', 'GLOBAL']
+const deploymentUrl = process.argv[2]?.replace(/\/$/, '')
 const failures = []
+
+const readDeployment = async route => {
+  const response = await fetch(`${deploymentUrl}${route}`)
+  if (!response.ok) throw new Error(`${route} returned HTTP ${response.status}`)
+  return response.json()
+}
 
 for (const code of editions) {
   try {
-    const [feed, live] = await Promise.all([collectFeed(code, true), collectLive(code, true)])
+    const [feed, live] = deploymentUrl
+      ? await Promise.all([readDeployment(`/api/feed?country=${code}`), readDeployment(`/api/live?country=${code}`)])
+      : await Promise.all([collectFeed(code, true), collectLive(code, true)])
     const localStories = feed.items.filter(item => item.isRegional)
     const localSources = [...new Set(localStories.map(item => item.source))]
     const failedLocalSources = feed.sources.filter(source => source.regional && !source.ok).map(source => source.name)
@@ -20,7 +29,7 @@ for (const code of editions) {
 }
 
 try {
-  const palestine = await collectPalestine(true)
+  const palestine = deploymentUrl ? await readDeployment('/api/palestine') : await collectPalestine(true)
   console.log(`PS      ${String(palestine.items.length).padStart(2)} Palestine reports | ${palestine.sources.filter(source => source.ok).map(source => source.name).join(', ')}`)
   if (!palestine.items.length) failures.push('Palestine returned no reports')
 } catch (error) {
