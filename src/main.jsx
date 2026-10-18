@@ -423,14 +423,15 @@ function VideoStory({ story, saved, toggleSaved }) {
 
 function LiveChannelCard({ channel, index }) {
   const playable = channel.liveNow && channel.videoId
+  const uncertain = !playable && channel.statusUnknown
   const officialUrl = channel.websiteUrl || channel.livePageUrl
-  const destinationUrl = playable ? (channel.watchUrl || channel.livePageUrl) : officialUrl
+  const destinationUrl = playable ? (channel.watchUrl || channel.livePageUrl) : uncertain ? channel.livePageUrl : officialUrl
   const brandStyle = { '--live-brand': channel.brandColor || '#4d1d27' }
 
   return (
     <article className={`live-channel-card${channel.global ? ' global-live' : ''}`} style={{ '--story-delay': `${Math.min(index, 6) * 55}ms` }}>
       <div className="live-channel-media">
-        <a className="live-channel-media-link" href={destinationUrl} target="_blank" rel="noreferrer" aria-label={playable ? `Open ${channel.name} live page` : `Visit ${channel.name} website`}>
+        <a className="live-channel-media-link" href={destinationUrl} target="_blank" rel="noreferrer" aria-label={playable || uncertain ? `Open ${channel.name} live page` : `Visit ${channel.name} website`}>
           {playable ? (
             <>
               <img src={channel.image} alt={`${channel.name} live stream preview`} loading={index < 2 ? 'eager' : 'lazy'} decoding="async" />
@@ -445,7 +446,7 @@ function LiveChannelCard({ channel, index }) {
             </div>
           )}
         </a>
-        <span className={playable ? 'live-badge is-live' : 'live-badge'}><i />{playable ? 'Live now' : 'Channel'}</span>
+        <span className={playable ? 'live-badge is-live' : 'live-badge'}><i />{playable ? 'Live now' : uncertain ? 'Check live' : 'Channel'}</span>
       </div>
       <div className="live-channel-copy">
         <div className="live-channel-brandline">
@@ -453,10 +454,10 @@ function LiveChannelCard({ channel, index }) {
           {channel.global ? <em>Always included</em> : null}
         </div>
         <h2>{channel.title}</h2>
-        <p>{playable ? 'Live right now — open the broadcaster’s verified live page.' : 'Not live right now — this card takes you to the broadcaster’s news website instead.'}</p>
+        <p>{playable ? 'Live right now — open the broadcaster’s verified live page.' : uncertain ? 'Live status could not be confirmed here — check the broadcaster’s official live page.' : 'Not live right now — this card takes you to the broadcaster’s news website instead.'}</p>
         <div className="live-channel-actions">
           <a className={playable ? 'live-destination-link' : 'official-site-link'} href={destinationUrl} target="_blank" rel="noreferrer">
-            {playable ? 'Watch live' : 'Visit website'} <ArrowUpRight size={17} />
+            {playable ? 'Watch live' : uncertain ? 'Check live page' : 'Visit website'} <ArrowUpRight size={17} />
           </a>
         </div>
       </div>
@@ -466,6 +467,7 @@ function LiveChannelCard({ channel, index }) {
 
 function LiveDesk({ channels, fetchedAt, loading, error, refresh, edition }) {
   const liveCount = channels.filter(channel => channel.liveNow && channel.videoId).length
+  const unconfirmedCount = channels.filter(channel => channel.statusUnknown).length
   return (
     <section className="live-desk" aria-labelledby="live-page-title">
       <div className="live-page-heading">
@@ -473,7 +475,7 @@ function LiveDesk({ channels, fetchedAt, loading, error, refresh, edition }) {
         <h1 id="live-page-title">LIVE</h1>
         <p>{edition?.code === 'GLOBAL' ? 'Worldwide news channels' : `${edition?.name} broadcasters`} with Al Jazeera English included in every edition.</p>
         <div className="live-page-status">
-          <strong>{liveCount} broadcasting now</strong>
+          <strong>{liveCount ? `${liveCount} broadcasting now` : unconfirmedCount ? 'Live status unconfirmed' : 'No channels live right now'}</strong>
           <span>{fetchedAt ? `Checked ${relativeTime(fetchedAt)}` : 'Checking channels'}</span>
           <button onClick={refresh} disabled={loading}><RefreshCw size={18} className={loading ? 'spin' : ''} /> Check again</button>
         </div>
@@ -481,7 +483,7 @@ function LiveDesk({ channels, fetchedAt, loading, error, refresh, edition }) {
       {loading && !channels.length ? <div className="live-loading" role="status"><span />Checking official live channels…</div> : null}
       {error && !channels.length ? <div className="error-state"><h2>Live channels are temporarily unavailable.</h2><p>{error}</p></div> : null}
       <div className="live-channel-grid">{channels.map((channel, index) => <LiveChannelCard key={channel.channelId} channel={channel} index={index} />)}</div>
-      <p className="live-methodology">Live status is checked against each broadcaster’s official YouTube live page every two minutes. A channel marked “Channel” is genuine but is not broadcasting at that moment.</p>
+      <p className="live-methodology">Live status is checked against each broadcaster’s official YouTube live page every two minutes. “Channel” means no current broadcast was found; “Check live” means verification was inconclusive, so you can check the official live page directly.</p>
     </section>
   )
 }

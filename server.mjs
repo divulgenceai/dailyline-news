@@ -730,7 +730,7 @@ export const collectLive = async (editionValue, force) => {
   const collection = (async () => {
     const regional = regionalLiveChannels[edition] || regionalLiveChannels.GLOBAL
     const channels = [...regional, alJazeeraLive]
-    const items = await Promise.all(channels.map(channel => resolveLiveChannel(channel).catch(error => ({
+    const resolvedItems = await Promise.all(channels.map(channel => resolveLiveChannel(channel).catch(error => ({
       ...channel,
       title: `${channel.name} live channel`,
       liveNow: false,
@@ -741,6 +741,13 @@ export const collectLive = async (editionValue, force) => {
       image: '',
       error: error.message,
     }))))
+    // If even the normally continuous global channel cannot be confirmed live,
+    // treat this check as inconclusive rather than declaring every station off air.
+    const statusUnconfirmed = !resolvedItems.some(channel => channel.liveNow)
+    const items = resolvedItems.map(channel => ({
+      ...channel,
+      statusUnknown: !channel.liveNow && (statusUnconfirmed || Boolean(channel.error)),
+    }))
     const data = { items, fetchedAt: Date.now(), edition, editionName: editionNames[edition] || editionNames.GLOBAL }
     liveCaches.set(edition, data)
     return data
