@@ -15,7 +15,8 @@ const articleFeeds = [
   { name: 'BBC Culture', category: 'Culture', url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', homepage: 'https://www.bbc.com/culture' },
   { name: 'TechCrunch', category: 'Tech', url: 'https://techcrunch.com/feed/', homepage: 'https://techcrunch.com' },
   { name: 'IGN', category: 'Gaming', url: 'https://feeds.feedburner.com/ign/all', homepage: 'https://www.ign.com' },
-  { name: 'Smithsonian Magazine', category: 'History', url: 'https://www.smithsonianmag.com/rss/smart-news/', homepage: 'https://www.smithsonianmag.com' },
+  { name: 'Smithsonian Magazine', category: 'History', url: 'https://www.smithsonianmag.com/rss/history/', homepage: 'https://www.smithsonianmag.com/history/' },
+  { name: 'The Conversation History', category: 'History', url: 'https://theconversation.com/au/topics/history-180/articles.atom', homepage: 'https://theconversation.com/au/topics/history-180', fullTextFeed: true },
 ]
 
 const regionalArticleFeeds = {
@@ -32,7 +33,7 @@ const regionalArticleFeeds = {
     { name: 'NPR', category: 'Local', url: 'https://feeds.npr.org/1001/rss.xml', homepage: 'https://www.npr.org', regional: true },
   ],
   CA: [
-    { name: 'CBC News', category: 'Local', url: 'https://www.cbc.ca/cmlink/rss-topstories', homepage: 'https://www.cbc.ca/news', regional: true },
+    { name: 'CBC News', category: 'Local', url: 'https://www.cbc.ca/webfeed/rss/rss-topstories', homepage: 'https://www.cbc.ca/news', regional: true },
     { name: 'Global News Canada', category: 'Local', url: 'https://globalnews.ca/canada/feed/', homepage: 'https://globalnews.ca/canada/', regional: true },
   ],
   GB: [
@@ -323,7 +324,7 @@ const collectSourceDetails = async url => {
   const cached = sourceDetailCache.get(url)
   if (cached && Date.now() - cached.fetchedAt < sourceDetailCacheMs) return cached.data
   const response = await fetch(url, {
-    headers: { 'user-agent': 'Mozilla/5.0 (compatible; Dailyline/1.0; source detail reader)' },
+    headers: { 'user-agent': 'Dailyline/1.0' },
     redirect: 'follow',
     signal: AbortSignal.timeout(12000),
   })
@@ -411,7 +412,7 @@ const fetchXml = async url => {
       const response = await fetch(url, {
         headers: {
           accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
-          'user-agent': 'Mozilla/5.0 (compatible; Dailyline/1.0; +https://github.com/divulgenceai/dailyline-news)',
+          'user-agent': 'Dailyline/1.0',
         },
         redirect: 'follow',
         signal: AbortSignal.timeout(8000),
@@ -443,10 +444,11 @@ const parseArticleFeed = async source => {
       .slice(0, 520)
     const description = rawDescription === rawTitle || rawDescription === `${title} ${publisher}` ? '' : rawDescription
     const richFeedHtml = textOf(item.encoded || item.content)
+    const republishableFeed = source.fullTextFeed && /creative commons/i.test(textOf(item.rights))
     const publisherText = cleanRichText(richFeedHtml || textOf(item.description || item.summary))
     const rawContent = publisherText.slice(0, 70_000)
     const fullContent = rawContent === rawTitle || rawContent === `${title} ${publisher}` ? '' : rawContent
-    const feedBody = source.fullTextFeed && isAllowedArticleUrl(url)
+    const feedBody = republishableFeed && isAllowedArticleUrl(url)
       ? readerBlocks(`<article>${richFeedHtml}</article>`, url, firstImage(item))
       : []
     const feedBodyWordCount = feedBody.filter(block => block.text).reduce((total, block) => total + block.text.split(/\s+/).filter(Boolean).length, 0)
@@ -463,7 +465,7 @@ const parseArticleFeed = async source => {
       content: fullContent,
       feedBody,
       feedBodyWordCount,
-      feedFullText: Boolean(source.fullTextFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000),
+      feedFullText: Boolean(republishableFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000),
       url,
       image: firstImage(item),
       publishedAt: new Date(publishedAt).toISOString(),
@@ -472,7 +474,7 @@ const parseArticleFeed = async source => {
       access: 'Publisher source',
       sourceHomepage: source.homepage,
       sourceFeed: source.url,
-      feedTextStatus: source.fullTextFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000 ? 'Full publisher feed text' : publisherText.length > 70_000 ? 'Publisher excerpt' : publisherText ? 'Publisher-supplied feed text' : 'Headline and source link',
+      feedTextStatus: republishableFeed && feedBodyWordCount >= 180 && feedBody.length < 140 && publisherText.length <= 70_000 ? 'Full publisher feed text' : publisherText.length > 70_000 ? 'Publisher excerpt' : publisherText ? 'Publisher-supplied feed text' : 'Headline and source link',
     }
   }).filter(item => item.title && item.url && !Number.isNaN(Date.parse(item.publishedAt)) && (!source.filter || source.filter.test(`${item.title} ${item.description}`)))
 }
@@ -663,6 +665,26 @@ const verifyPublicBlog = async story => {
   }
 }
 
+const diverseBlogCandidates = (stories, limit) => {
+  const bySource = new Map()
+  for (const story of stories) {
+    if (!bySource.has(story.source)) bySource.set(story.source, [])
+    bySource.get(story.source).push(story)
+  }
+  const selected = []
+  while (selected.length < limit) {
+    let found = false
+    for (const group of bySource.values()) {
+      if (!group.length) continue
+      selected.push(group.shift())
+      found = true
+      if (selected.length === limit) break
+    }
+    if (!found) break
+  }
+  return selected
+}
+
 export const collectBlogs = async (editionValue, topicValue = 'All', force = false) => {
   const edition = normalizeEdition(editionValue)
   const topic = blogCategories.includes(topicValue) ? topicValue : 'All'
@@ -678,8 +700,8 @@ export const collectBlogs = async (editionValue, topicValue = 'All', force = fal
     const articles = (feed?.items || []).filter(item => item.type === 'article')
     const palestineArticles = palestine?.items || []
     const candidates = topic === 'All'
-      ? blogCategories.flatMap(category => (category === 'Palestine' ? palestineArticles : articles.filter(item => item.category === category)).slice(0, 3))
-      : (topic === 'Palestine' ? palestineArticles : articles.filter(item => item.category === topic)).slice(0, 12)
+      ? blogCategories.flatMap(category => diverseBlogCandidates(category === 'Palestine' ? palestineArticles : articles.filter(item => item.category === category), 3))
+      : diverseBlogCandidates(topic === 'Palestine' ? palestineArticles : articles.filter(item => item.category === topic), 12)
     const checked = await Promise.all(candidates.map(verifyPublicBlog))
     const items = checked.filter(Boolean).sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
     const data = { items, fetchedAt: Date.now(), edition, topic, checkedCount: candidates.length }

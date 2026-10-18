@@ -32,9 +32,10 @@ The Vite app runs at `http://localhost:5173` and proxies API requests to the loc
 ```bash
 npm run build
 npm run check:editions
+npm run check:blogs
 ```
 
-The edition check fails if any selectable country returns no genuine country-specific stories.
+The edition check fails if any selectable country returns no genuine country-specific stories. The blog check fails if a topic has no readable public articles or an item lacks substantial on-site text. To check the deployed reader, run `node scripts/check-blogs.mjs https://dailyline-news.vercel.app`.
 
 ## Deploy to Vercel
 
