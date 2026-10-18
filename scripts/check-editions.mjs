@@ -25,6 +25,7 @@ for (const code of editions) {
     if (!live.items.some(channel => channel.name === 'Al Jazeera English')) failures.push(`${code} live desk is missing Al Jazeera English`)
     if (code !== 'GLOBAL' && !live.items.some(channel => !channel.global)) failures.push(`${code} live desk has no regional broadcaster`)
     if (!liveSources.length && live.items.some(channel => !channel.statusUnknown)) failures.push(`${code} claims a broadcaster is offline without confirming any channel is live`)
+    if (code === 'AU' && ['7NEWS', '9News', 'ABC News Australia'].some(name => !live.items.find(channel => channel.name === name)?.officialLiveUrl)) failures.push('AU is missing a broadcaster-owned live destination')
   } catch (error) {
     failures.push(`${code}: ${error.message}`)
   }

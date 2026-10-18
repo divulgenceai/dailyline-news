@@ -425,7 +425,7 @@ function LiveChannelCard({ channel, index }) {
   const playable = channel.liveNow && channel.videoId
   const uncertain = !playable && channel.statusUnknown
   const officialUrl = channel.websiteUrl || channel.livePageUrl
-  const destinationUrl = playable ? (channel.watchUrl || channel.livePageUrl) : uncertain ? channel.livePageUrl : officialUrl
+  const destinationUrl = playable ? (channel.officialLiveUrl || channel.watchUrl || channel.livePageUrl) : uncertain ? (channel.officialLiveUrl || channel.livePageUrl) : officialUrl
   const brandStyle = { '--live-brand': channel.brandColor || '#4d1d27' }
 
   return (
@@ -455,6 +455,7 @@ function LiveChannelCard({ channel, index }) {
         </div>
         <h2>{channel.title}</h2>
         <p>{playable ? 'Live right now — open the broadcaster’s verified live page.' : uncertain ? 'Live status could not be confirmed here — check the broadcaster’s official live page.' : 'Not live right now — this card takes you to the broadcaster’s news website instead.'}</p>
+        {channel.liveAccessNote && (playable || uncertain) ? <p className="live-access-note">{channel.liveAccessNote}</p> : null}
         <div className="live-channel-actions">
           <a className={playable ? 'live-destination-link' : 'official-site-link'} href={destinationUrl} target="_blank" rel="noreferrer">
             {playable ? 'Watch live' : uncertain ? 'Check live page' : 'Visit website'} <ArrowUpRight size={17} />

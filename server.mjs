@@ -76,15 +76,16 @@ const alJazeeraLive = {
   name: 'Al Jazeera English',
   channelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg',
   websiteUrl: 'https://www.aljazeera.com/',
+  officialLiveUrl: 'https://www.aljazeera.com/watch_now/',
   brandColor: '#d7a229',
   global: true,
 }
 
 const regionalLiveChannels = {
   AU: [
-    { name: '7NEWS', channelId: 'UC5T7D-Dh1eDGtsAFCuwv_Sw', websiteUrl: 'https://7news.com.au/', brandColor: '#e21b2d' },
-    { name: '9News', channelId: 'UCIYLOcEUX6TbBo7HQVF2PKA', websiteUrl: 'https://www.9news.com.au/', brandColor: '#1556a2' },
-    { name: 'ABC News Australia', channelId: 'UCVgO39Bk5sMo66-6o6Spn6Q', websiteUrl: 'https://www.abc.net.au/news/', brandColor: '#111111' },
+    { name: '7NEWS', channelId: 'UC5T7D-Dh1eDGtsAFCuwv_Sw', websiteUrl: 'https://7news.com.au/', officialLiveUrl: 'https://7plus.com.au/watch-live-tv?channel-id=Seven', liveAccessNote: '7plus may ask for a free account to watch.', brandColor: '#e21b2d' },
+    { name: '9News', channelId: 'UCIYLOcEUX6TbBo7HQVF2PKA', websiteUrl: 'https://www.9news.com.au/', officialLiveUrl: 'https://www.9now.com.au/live/channel-9', liveAccessNote: '9Now requires a free Nine account to watch.', brandColor: '#1556a2' },
+    { name: 'ABC News Australia', channelId: 'UCVgO39Bk5sMo66-6o6Spn6Q', websiteUrl: 'https://www.abc.net.au/news/', officialLiveUrl: 'https://www.abc.net.au/news/newschannel', brandColor: '#111111' },
   ],
   NZ: [
     { name: '1News', channelId: 'UCxPAYgO8OpFev3PUTKbsxNw', websiteUrl: 'https://www.1news.co.nz/', brandColor: '#c9002b' },
